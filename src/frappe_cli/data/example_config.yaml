@@ -1,0 +1,25 @@
+# Example Frappe Installer Config
+# Copy and edit as needed for your environment
+
+system:
+  timezone: "Africa/Dar_es_Salaam"
+  locale: "en_US.UTF-8"
+  user: "frappe"
+
+frappe:
+  branch: "version-15"
+  bench_name: "frappe-bench"
+  site_name: "example.com"
+  admin_password: "changeme"
+  mariadb_root_password: "rootpass"
+
+services:
+  enable_ssl: true
+  enable_ufw: true
+  enable_fail2ban: false
+  custom_ports: [ ]
+
+backup:
+  admin_email: "admin@example.com"
+  external_hd_uuid: ""
+  retention_days: 7 

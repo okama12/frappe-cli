@@ -1,0 +1,39 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "frappe-installer"
+version = "0.1.0"
+description = "Professional CLI for Frappe deployment and management."
+authors = [
+    { name = "Rashidi Okama", email = "rashidokama@gmail.com" }
+]
+requires-python = ">=3.10"
+dependencies = [
+    "click>=8.0",
+    "pyyaml>=6.0",
+    "rich>=13.0"
+]
+
+[project.scripts]
+frappe = "frappe_cli.cli:cli"
+
+[tool.setuptools]
+package-dir = {"" = "src"}
+packages = [
+    "frappe_cli",
+    "frappe_cli.app",
+    "frappe_cli.backup",
+    "frappe_cli.config",
+    "frappe_cli.firewall",
+    "frappe_cli.install",
+    "frappe_cli.maintenance",
+    "frappe_cli.monitor",
+    "frappe_cli.optimize",
+    "frappe_cli.rollback",
+    "frappe_cli.service",
+    "frappe_cli.site",
+    "frappe_cli.ssl",
+    "frappe_cli.utils"
+] 
