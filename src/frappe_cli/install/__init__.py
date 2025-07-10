@@ -13,7 +13,7 @@ from .user import user
 
 @click.group()
 def install():
-    """Install and setup commands for Frappe/ERPNext environment."""
+    """Install and setup commands for Frappe"""
     pass
 
 install.add_command(bench)
