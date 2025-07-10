@@ -2,15 +2,12 @@ import click
 import os
 import logging
 from rich.console import Console
-from rich.prompt import Prompt
-import getpass
-from ..utils import shell
 
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
 
 def setup_logger():
-    logger = logging.getLogger("frappe_installer.site.create")
+    logger = logging.getLogger("frappe_installer.site.add")
     logger.setLevel(logging.INFO)
     try:
         handler = logging.FileHandler(LOG_FILE)
@@ -55,14 +52,14 @@ class RichShell:
 
 @click.command()
 @click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
-@click.option('--site-name', prompt='Enter site name (FQDN recommended)', default=lambda: os.uname()[1], show_default=True, help='Site name (FQDN)')
+@click.option('--site-name', prompt='Enter site name', help='Site name to install the app on')
+@click.option('--app-name', prompt='Enter app name', help='App name to install')
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
-def create(bench_name, site_name, dry_run, debug, ignore_errors):
-    """Create a new Frappe site."""
-    logger.info(f"[site] Creating site: {site_name} in bench: {bench_name}")
-    # Resolve bench path to user's home if not absolute
+def add(bench_name, site_name, app_name, dry_run, debug, ignore_errors):
+    """Install a Frappe app on a site."""
+    logger.info(f"[site] Installing app: {app_name} on site: {site_name} in bench: {bench_name}")
     user_home = os.path.expanduser('~')
     if not os.path.isabs(bench_name):
         bench_path = os.path.join(user_home, bench_name)
@@ -73,14 +70,13 @@ def create(bench_name, site_name, dry_run, debug, ignore_errors):
         logger.error(f"[site] Bench directory '{bench_path}' not found.")
         raise click.ClickException(f"Bench directory '{bench_path}' not found.")
     os.chdir(bench_path)
-    site_path = f"sites/{site_name}"
-    if os.path.isdir(site_path):
-        console.print(f"[yellow]Site '{site_name}' already exists. Skipping creation.[/yellow]")
-        logger.info(f"[site] Site '{site_name}' already exists. Skipping.")
-        return
     shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
     shell_runner.run([
-        "bench", "new-site", site_name
-    ], f"Creating new site '{site_name}'", ignore_errors=ignore_errors)
-    logger.info(f"[site] Site created: {site_name}")
-    console.print(f"[bold green]✓ Site created: {site_name}[/bold green]")
+        "bench", "--site", site_name, "install-app", app_name
+    ], f"Installing app '{app_name}' on site '{site_name}'", ignore_errors=ignore_errors)
+    logger.info(f"[site] App {app_name} installed on site {site_name}")
+    console.print(f"[bold green]✓ App {app_name} installed on site {site_name}[/bold green]")
+    # Optionally, show installed apps
+    shell_runner.run([
+        "bench", "--site", site_name, "list-apps"
+    ], f"Listing installed apps on site '{site_name}'", ignore_errors=ignore_errors)

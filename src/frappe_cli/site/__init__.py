@@ -5,6 +5,7 @@ from .backup import backup
 from .create import create
 from .list import list as list_sites
 from .restore import restore
+from .add import add
 
 @click.group()
 def site():
@@ -13,5 +14,6 @@ def site():
 
 site.add_command(backup)
 site.add_command(create)
+site.add_command(add)
 site.add_command(list_sites, name='list')
-site.add_command(restore) 
+site.add_command(restore)
