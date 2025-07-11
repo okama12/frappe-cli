@@ -94,34 +94,129 @@ def is_root_using_socket():
 
 def is_already_secured():
     try:
-        out = subprocess.check_output([
-            "sudo", "mysql", "-NBe", "SELECT COUNT(*) FROM mysql.user WHERE user='' OR host='localhost' AND password='';"
+        # 1. No anonymous users
+        anon_users = subprocess.check_output([
+            "sudo", "mysql", "-NBe", "SELECT COUNT(*) FROM mysql.user WHERE user='' OR user IS NULL;"
         ]).decode().strip()
-        return out == "0"
-    except Exception:
+        if anon_users != "0":
+            return False
+        # 2. No users with empty passwords
+        empty_pw = subprocess.check_output([
+            "sudo", "mysql", "-NBe", "SELECT COUNT(*) FROM mysql.user WHERE authentication_string='' OR authentication_string IS NULL;"
+        ]).decode().strip()
+        if empty_pw != "0":
+            return False
+        # 3. No test database
+        test_db = subprocess.check_output([
+            "sudo", "mysql", "-NBe", "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='test';"
+        ]).decode().strip()
+        if test_db != "0":
+            return False
+        # 4. root only allowed on localhost
+        root_hosts = subprocess.check_output([
+            "sudo", "mysql", "-NBe", "SELECT GROUP_CONCAT(DISTINCT host) FROM mysql.user WHERE user='root';"
+        ]).decode().strip()
+        if root_hosts not in ("localhost", "127.0.0.1", "localhost,127.0.0.1"):
+            return False
+        # 5. root has a password and uses mysql_native_password
+        root_auth = subprocess.check_output([
+            "sudo", "mysql", "-NBe", "SELECT plugin,authentication_string FROM mysql.user WHERE user='root' AND host='localhost';"
+        ]).decode().strip()
+        if not root_auth:
+            return False
+        plugin, auth_string = root_auth.split("\t") if "\t" in root_auth else (root_auth, "")
+        if plugin != "mysql_native_password" or not auth_string:
+            return False
+        return True
+    except Exception as e:
+        logger.error(f"[mariadb] Secure state check failed: {e}")
         return False
 
+def get_mariadb_service_name():
+    """Detect the correct MariaDB/MySQL service name"""
+    services = ["mariadb", "mysql"]
+    for service in services:
+        try:
+            result = subprocess.run(
+                ["sudo", "systemctl", "is-active", service],
+                capture_output=True,
+                text=True
+            )
+            if result.returncode == 0:
+                return service
+        except Exception:
+            continue
+    return "mariadb"  # fallback
+
 def get_config_path():
-    # Ubuntu 20.04/22.04/24.04 all use this path for MariaDB 10.3+/10.6+
+    """Detect the correct MariaDB config directory"""
+    possible_paths = [
+        "/etc/mysql/mariadb.conf.d/50-frappe.cnf",
+        "/etc/mysql/conf.d/50-frappe.cnf",
+        "/etc/my.cnf.d/50-frappe.cnf"
+    ]
+    for path in possible_paths:
+        config_dir = os.path.dirname(path)
+        if os.path.exists(config_dir):
+            return path
     return "/etc/mysql/mariadb.conf.d/50-frappe.cnf"
 
-def write_mariadb_config(dry_run, debug):
-    config_path = get_config_path()
-    cnf_content = '''[mysqld]
-# Modern Frappe/MariaDB config
+def get_optimal_innodb_buffer_pool_size():
+    """Calculate optimal InnoDB buffer pool size based on available RAM"""
+    try:
+        with open('/proc/meminfo', 'r') as f:
+            meminfo = f.read()
+        mem_total_kb = int([line for line in meminfo.split('\n') if 'MemTotal' in line][0].split()[1])
+        mem_total_gb = mem_total_kb / 1024 / 1024
+        if mem_total_gb >= 8:
+            return f"{int(mem_total_gb * 0.6)}G"
+        elif mem_total_gb >= 4:
+            return f"{int(mem_total_gb * 0.5)}G"
+        else:
+            return "256M"
+    except Exception:
+        return "256M"
+
+def get_mariadb_config(buffer_pool_size="256M"):
+    return f'''[mysqld]
+# Frappe Framework Configuration
 innodb_file_per_table=1
 character-set-client-handshake=FALSE
 character-set-server=utf8mb4
 collation-server=utf8mb4_unicode_ci
+
+# Connection settings
 max_connections=1000
-innodb_buffer_pool_size=256M
+connect_timeout=600
+wait_timeout=600
+max_allowed_packet=128M
+
+# InnoDB settings
+innodb_buffer_pool_size={buffer_pool_size}
 innodb_log_file_size=128M
 innodb_flush_log_at_trx_commit=2
+innodb_file_per_table=1
+innodb_buffer_pool_instances=1
+
+# Performance
 skip-name-resolve
+query_cache_type=0
+query_cache_size=0
+
+# Binary logging (optional, for replication)
+log_bin=mysql-bin
+binlog_format=ROW
+expire_logs_days=10
+max_binlog_size=100M
 
 [mysql]
 default-character-set=utf8mb4
 '''
+
+def write_mariadb_config(dry_run, debug):
+    config_path = get_config_path()
+    buffer_pool_size = get_optimal_innodb_buffer_pool_size()
+    cnf_content = get_mariadb_config(buffer_pool_size)
     if dry_run:
         console.print(f"[yellow][dry-run] Would write MariaDB config to {config_path}[/yellow]")
         return
@@ -130,29 +225,32 @@ default-character-set=utf8mb4
     subprocess.run(["sudo", "mv", "/tmp/50-frappe.cnf", config_path], check=True)
     console.print(f"[green]✓ MariaDB config written to {config_path}[/green]")
 
-def create_frappe_user(shell_runner, frappe_user, frappe_password, ignore_errors, dry_run):
-    # Create user and database if not exists
-    shell_runner.run([
-        "sudo", "mysql", "-e",
-        f"CREATE USER IF NOT EXISTS '{frappe_user}'@'localhost' IDENTIFIED BY '{frappe_password}';"
-    ], f"Create MariaDB user '{frappe_user}'", ignore_errors=ignore_errors)
-    shell_runner.run([
-        "sudo", "mysql", "-e",
-        f"GRANT ALL PRIVILEGES ON *.* TO '{frappe_user}'@'localhost' WITH GRANT OPTION;"
-    ], f"Grant privileges to '{frappe_user}'", ignore_errors=ignore_errors)
-    shell_runner.run([
-        "sudo", "mysql", "-e",
-        f"CREATE DATABASE IF NOT EXISTS frappe DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
-    ], "Create Frappe database if needed", ignore_errors=ignore_errors)
+def validate_mariadb_version(db_type, db_version):
+    """Validate MariaDB/MySQL version compatibility"""
+    if db_type == "mariadb":
+        min_version = (10, 3)
+        recommended_version = (10, 6)
+    else:  # mysql
+        min_version = (8, 0)
+        recommended_version = (8, 0)
+    try:
+        current_version = tuple(map(int, db_version.split(".")[:2]))
+        if current_version < min_version:
+            console.print(f"[bold red]ERROR: {db_type} {db_version} is not supported. Minimum version: {'.'.join(map(str, min_version))}[/bold red]")
+            return False
+        elif current_version < recommended_version:
+            console.print(f"[bold yellow]WARNING: {db_type} {db_version} is below recommended version {'.'.join(map(str, recommended_version))}[/bold yellow]")
+        return True
+    except Exception:
+        console.print(f"[bold red]ERROR: Could not parse version {db_version}[/bold red]")
+        return False
 
 @click.command()
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
-@click.option('--frappe-user', default='frappe', help='Frappe DB user to create')
-@click.option('--frappe-password', default=None, help='Frappe DB user password')
 @click.pass_context
-def mariadb(ctx, dry_run, debug, ignore_errors, frappe_user, frappe_password):
+def mariadb(ctx, dry_run, debug, ignore_errors):
     """Secure and configure MariaDB for Frappe."""
     validate_sudo()
     shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
@@ -161,52 +259,27 @@ def mariadb(ctx, dry_run, debug, ignore_errors, frappe_user, frappe_password):
         console.print("[bold red]Could not detect a valid MariaDB/MySQL version! Please ensure MariaDB or MySQL is installed and accessible as 'mysql'.[/bold red]")
         raise click.ClickException("MariaDB/MySQL not found or version not detected.")
     console.print(f"Detected {db_type} version {db_version}")
-    if db_type == "mariadb":
-        try:
-            version_tuple = tuple(map(int, db_version.split(".")))
-        except Exception:
-            version_tuple = (0, 0)
-        if version_tuple < (10, 6):
-            console.print("[bold red]MariaDB 10.6+ is required for best compatibility.[/bold red]")
-    if db_type == "mysql":
-        try:
-            version_tuple = tuple(map(int, db_version.split(".")))
-        except Exception:
-            version_tuple = (0, 0)
-        if version_tuple < (8, 0):
-            console.print("[bold red]MySQL 8.0+ is required for best compatibility.[/bold red]")
+    if not validate_mariadb_version(db_type, db_version):
+        raise click.ClickException(f"{db_type} {db_version} does not meet minimum requirements.")
     # Secure MariaDB using the official script
     if not is_already_secured():
+        console.print("[yellow]MariaDB/MySQL does not appear to be secured. Please follow the interactive secure installation procedure.")
         # Try mariadb-secure-installation first, then fallback to mysql_secure_installation
         secure_cmds = [
-            ["sudo", "mariadb-secure-installation", "--use-default"],
-            ["sudo", "mysql_secure_installation", "--use-default"]
+            ["sudo", "mariadb-secure-installation"],
+            ["sudo", "mysql_secure_installation"]
         ]
         for cmd in secure_cmds:
-            rc = shell_runner.run(cmd, "Running secure installation script", ignore_errors=True)
+            rc = shell_runner.run(cmd, "Launching secure installation script (interactive)", ignore_errors=True)
             if rc == 0:
                 break
         else:
             console.print("[yellow]Could not run secure installation script automatically. Please run it manually if needed.[/yellow]")
     else:
         console.print("[green]MariaDB/MySQL already appears to be secured.[/green]")
-    # Check root authentication method
-    if is_root_using_socket():
-        console.print("[cyan]Root user uses unix_socket authentication. No password set for root (recommended for local use).[/cyan]")
-    else:
-        set_root = Confirm.ask("Root does not use unix_socket. Set a root password?", default=False)
-        if set_root:
-            root_password = Prompt.ask('Enter new MariaDB root password', password=True)
-            shell_runner.run([
-                "sudo", "mysql", "-e",
-                f"ALTER USER 'root'@'localhost' IDENTIFIED BY '{root_password}';"
-            ], "Set root password", ignore_errors=ignore_errors)
     # Write modern MariaDB config
     write_mariadb_config(dry_run, debug)
-    # Optionally create Frappe user
-    if frappe_password is None:
-        frappe_password = Prompt.ask(f"Enter password for MariaDB user '{frappe_user}'", password=True)
-    create_frappe_user(shell_runner, frappe_user, frappe_password, ignore_errors, dry_run)
-    shell_runner.run(["sudo", "systemctl", "restart", "mariadb"], "Restart MariaDB", ignore_errors=ignore_errors)
+    service_name = get_mariadb_service_name()
+    shell_runner.run(["sudo", "systemctl", "restart", service_name], f"Restart {service_name}", ignore_errors=ignore_errors)
     logger.info("[mariadb] MariaDB secured and configured.")
     console.print("[bold green]✓ MariaDB secured and configured for Frappe![/bold green]")

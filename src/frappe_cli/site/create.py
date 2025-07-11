@@ -74,7 +74,12 @@ def create(bench_name, site_name, dry_run, debug, ignore_errors):
         raise click.ClickException(f"Bench directory '{bench_path}' not found.")
     os.chdir(bench_path)
     site_path = f"sites/{site_name}"
+    site_config_path = os.path.join(site_path, "site_config.json")
     if os.path.isdir(site_path):
+        if not os.path.isfile(site_config_path):
+            console.print(f"[red]Site folder '{site_name}' exists but is incomplete (missing site_config.json).\nYou may want to delete it and try again.[/red]")
+            logger.error(f"[site] Site folder '{site_name}' exists but is incomplete (missing site_config.json).")
+            raise click.ClickException(f"Site folder '{site_name}' exists but is incomplete. Delete it and try again.")
         console.print(f"[yellow]Site '{site_name}' already exists. Skipping creation.[/yellow]")
         logger.info(f"[site] Site '{site_name}' already exists. Skipping.")
         return
