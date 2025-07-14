@@ -40,7 +40,7 @@ class RichShell:
         try:
             result = os.system(' '.join(cmd))
             if result != 0:
-                raise Exception(f"Command failed: {' '.join(cmd)}")
+                raise click.ClickException(f"Command failed: {' '.join(cmd)}")
             logger.info(f"[site] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
@@ -58,9 +58,14 @@ class RichShell:
 @click.option('--site-name', prompt='Enter site name (FQDN recommended)', default=lambda: os.uname()[1], show_default=True, help='Site name (FQDN)')
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
-@click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
-def create(bench_name, site_name, dry_run, debug, ignore_errors):
-    """Create a new Frappe site."""
+@click.pass_context
+def create(ctx, bench_name, site_name, dry_run, debug):
+    """
+    Create a new Frappe site.
+
+    Example:
+        frappe site create --bench-name mybench --site-name example.com --debug
+    """
     logger.info(f"[site] Creating site: {site_name} in bench: {bench_name}")
     # Resolve bench path to user's home if not absolute
     user_home = os.path.expanduser('~')

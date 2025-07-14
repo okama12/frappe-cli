@@ -1,0 +1,6 @@
+pytest
+pytest-cov
+click
+black
+flake8
+isort

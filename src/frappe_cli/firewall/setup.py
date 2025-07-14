@@ -23,7 +23,12 @@ logger = setup_logger()
 
 @click.command()
 def setup():
-    """Configure UFW firewall for production best practices."""
+    """
+    Configure UFW firewall for production best practices.
+
+    Example:
+        frappe firewall setup
+    """
     logger.info("[firewall] Configuring UFW firewall...")
     console.print("[blue]Setting default UFW policies...[/blue]")
     shell.run(["sudo", "ufw", "default", "deny", "incoming"])

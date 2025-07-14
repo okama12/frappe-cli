@@ -47,7 +47,7 @@ class RichShell:
         try:
             result = os.system(' '.join(cmd))
             if result != 0:
-                raise Exception(f"Command failed: {' '.join(cmd)}")
+                raise click.ClickException(f"Command failed: {' '.join(cmd)}")
             logger.info(f"[init] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result

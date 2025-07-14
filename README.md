@@ -1,24 +1,25 @@
 # Frappe Installer CLI
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A professional-grade, modular, and extensible command-line tool to automate Frappe deployment and server management on Ubuntu-based servers. Built with Python, Click, and best practices for production and developer workflows.
 
 ---
 
 ## 🚀 Overview
 
-**Frappe Installer CLI** replaces interactive Bash scripts with a modern, maintainable Python CLI. It streamlines the full lifecycle of Frappe deployment, including:
+**Frappe Installer CLI** is a professional-grade, production-ready Python CLI for managing Frappe and ERPNext deployments. It provides a modern, developer-friendly alternative to Bash scripts, with:
 
-- OS preparation (packages, timezone, users)
-- Frappe Bench setup
-- Site creation and management
-- SSL and firewall configuration
-- Backups and disaster recovery
-- Long-term server and app maintenance
-- Security best practices
+- Consistent, colored output and progress bars (Rich/Click)
+- Professional error handling and actionable messages
+- Modular command groups for all aspects of Frappe/ERPNext management
+- Automated backups, SSL, firewall, and security hardening
+- Robust logging with log level control
+- Automated tests and continuous integration for code quality
 
 ---
 
-## ✨ Features
+## ✨ Key Features
 
 - **Step-by-step or full-stack install**
 - **Config-driven**: YAML/JSON config for reproducible, production-safe installs
@@ -30,16 +31,54 @@ A professional-grade, modular, and extensible command-line tool to automate Frap
 - **Security**: Fail2Ban, SSH hardening, log rotation
 - **Extensible**: Modular command groups, easy to add features
 - **Rich logging**: All actions logged to `/var/log/frappe-installer.log`
+- **Professional error handling**: All user errors are clear and actionable
+- **Automated testing**: Pytest and Click CLI runner for all commands
+- **CI/CD**: Linting, formatting, and tests run on every push/PR (GitHub Actions)
 
 ---
 
-## 🧱 Architecture
+## 🧱 Architecture & Developer Experience
 
 - **Click**: CLI framework
+- **Rich**: Colored output, progress bars, and prompts
 - **Subprocess**: Executes system commands (apt, pip, nginx, etc.)
 - **YAML/JSON**: Configurable install/runtime settings
 - **Logging**: `/var/log/frappe-installer.log` (with logrotate)
-- **Extensible modules**: Each command group in its own file
+- **Modular codebase**: Each command group in its own file/module
+- **Automated tests**: All major commands and error cases covered
+- **Code quality automation**: Black, flake8, isort, and CI pipeline
+
+---
+
+## 🧪 Automated Testing & Quality
+
+- All commands are tested using `pytest` and `click.testing.CliRunner`
+- Linting and formatting enforced with `flake8`, `black`, and `isort`
+- GitHub Actions workflow runs tests and code checks on every PR
+- See `requirements-dev.txt` for development dependencies
+
+---
+
+## 🛠️ Usage
+
+```sh
+frappe --help
+frappe site create --help
+frappe app clone --help
+frappe backup setup --help
+# ...and more
+```
+
+All commands support `--help` with examples. Use `--debug` and `--dry-run` for safe experimentation.
+
+---
+
+## 🤝 Contributing
+
+- Keep commands modular (one file/module per group)
+- Add new tests in `tests/` using `pytest` and `click.testing.CliRunner`
+- Run `black`, `flake8`, and `isort` before PRs
+- See `CONTRIBUTING.md` for more guidelines (coming soon)
 
 ---
 
@@ -172,7 +211,9 @@ backup:
   admin_email: "admin@example.com"
   external_hd_uuid: ""
   retention_days: 7
-```
+## 📝 License
+
+This project is licensed under the [MIT License](LICENSE).
 
 ---
 

@@ -28,7 +28,12 @@ logger = setup_logger()
 @click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
 @click.option('--site-name', prompt='Enter site name', help='Frappe site name')
 def setup(admin_email, bench_name, site_name):
-    """Set up robust backups with external HD and cron job."""
+    """
+    Set up robust backups with external HD and cron job.
+
+    Example:
+        frappe backup setup --admin-email user@example.com --bench-name mybench --site-name example.com
+    """
     logger.info(f"[backup] Setting up backup for site: {site_name} in bench: {bench_name}")
     # Test email
     console.print(f"[blue]Sending test email to {admin_email}...[/blue]")

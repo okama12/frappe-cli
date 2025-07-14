@@ -22,6 +22,11 @@ logger = setup_logger()
 
 @click.command()
 def performance():
-    """Optimize Frappe/Server performance (stub)."""
+    """
+    Optimize Frappe/Server performance (stub).
+
+    Example:
+        frappe optimize performance
+    """
     logger.info(f"[optimize] Performance called.")
     console.print(f"[yellow][STUB] Would optimize server performance. Not yet implemented.[/yellow]") 

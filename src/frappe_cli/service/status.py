@@ -51,7 +51,7 @@ class ShellRunner:
             self.console.print(msg)
             self.logger.error(msg)
             if check:
-                raise e
+                raise click.ClickException(f"Command failed: {str(e)}")
             return ''
 
 shell_runner = ShellRunner(console, logger)

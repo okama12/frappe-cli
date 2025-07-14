@@ -76,6 +76,9 @@ def stream_output(process, output_queue, stream_type):
     """Stream output from subprocess to queue."""
     stream = process.stdout if stream_type == 'stdout' else process.stderr
     for line in iter(stream.readline, b''):
+        # Prefix raw output for clarity
+        prefix = '[stdout]' if stream_type == 'stdout' else '[stderr]'
+        console.print(f"{prefix} {line.decode('utf-8').rstrip()}")
         output_queue.put((stream_type, line.decode('utf-8').rstrip()))
     stream.close()
 
@@ -186,7 +189,7 @@ class RichShell:
                         
                         if not ignore_errors:
                             self.console.print(f"[red]Error: {error_msg}[/red]")
-                            raise subprocess.CalledProcessError(process.returncode, cmd)
+                            raise click.ClickException(f"Command failed with return code {process.returncode}: {' '.join(cmd)}")
                         else:
                             self.console.print(f"[yellow]Warning: {error_msg} (ignored)[/yellow]")
                     else:
@@ -214,7 +217,7 @@ class RichShell:
                         logger.error(f"[deps] Command failed: {' '.join(cmd)} - {str(e)}")
                         
                         if not ignore_errors:
-                            raise e
+                            raise click.ClickException(f"Command failed: {' '.join(cmd)}\n{str(e)}")
                         else:
                             self.console.print(f"[yellow]Warning: Command failed but ignored: {str(e)}[/yellow]")
                     
@@ -227,7 +230,7 @@ class RichShell:
                 logger.error(f"[deps] Unexpected error: {str(e)}")
                 
                 if not ignore_errors:
-                    raise e
+                    raise click.ClickException(f"Unexpected error: {str(e)}")
                 else:
                     self.console.print(f"[yellow]Warning: Unexpected error ignored: {str(e)}[/yellow]")
         else:
@@ -285,7 +288,12 @@ def create_dependency_table(selected_deps):
 @click.option('--ignore-errors', is_flag=True, help='Continue installation even if some commands fail')
 @click.pass_context
 def deps(ctx, dry_run, debug, ignore_errors):
-    """Install system dependencies for Frappe/ERPNext."""
+    """
+    Install system dependencies for Frappe/ERPNext.
+
+    Example:
+        frappe install deps --debug
+    """
     config = ctx.obj.get('CONFIG', {})
     default_deps = 'python,mariadb,redis,pdf,node,tools,bench-deps,mail'
     deps_val = config.get('system', {}).get('deps', default_deps)
@@ -532,3 +540,4 @@ def deps(ctx, dry_run, debug, ignore_errors):
         ))
     
     logger.info("[deps] Dependencies installation process completed.")
+    console.print("[green]\u2713 All selected dependencies installed (or attempted) successfully!\n[/green]")

@@ -29,7 +29,12 @@ logger = setup_logger()
 @click.option('--dry-run', is_flag=True, help='Show what would be restarted without doing it')
 @click.option('--debug', is_flag=True, help='Enable debug output')
 def restart(bench_name, site_name, dry_run, debug):
-    """Restart Frappe services."""
+    """
+    Restart Frappe services.
+
+    Example:
+        frappe service restart --bench-name mybench --site-name example.com --dry-run
+    """
     logger.info("[service] Restarting Frappe services")
     
     if dry_run:

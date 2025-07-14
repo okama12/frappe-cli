@@ -47,7 +47,7 @@ class RichShell:
         try:
             result = os.system(' '.join(cmd))
             if result != 0:
-                raise Exception(f"Command failed: {' '.join(cmd)}")
+                raise click.ClickException(f"Command failed: {' '.join(cmd)}")
             logger.info(f"[bench] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
@@ -62,10 +62,15 @@ class RichShell:
 @click.command()
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
-@click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
+@click.option('--ignore-errors', is_flag=True, help='Continue installation even if some commands fail')
 @click.pass_context
 def bench(ctx, dry_run, debug, ignore_errors):
-    """Install Frappe Bench CLI."""
+    """
+    Install Frappe Bench CLI.
+
+    Example:
+        frappe install bench --debug
+    """
     validate_sudo()
     config = ctx.obj.get('CONFIG', {})
     frappe_branch = config.get('frappe', {}).get('branch') or 'version-15'

@@ -26,7 +26,12 @@ logger = setup_logger()
 @click.option('--site-name', prompt='Enter site name (domain)', help='Domain for SSL certificate')
 @click.option('--email', prompt='Enter your email for Let\'s Encrypt notifications', help='Email for Let\'s Encrypt')
 def setup(site_name, email):
-    """Set up SSL/HTTPS with Let's Encrypt (Certbot)."""
+    """
+    Set up SSL/HTTPS with Let's Encrypt (Certbot).
+
+    Example:
+        frappe ssl setup --site-name example.com --email user@example.com
+    """
     logger.info(f"[ssl] Setting up SSL for domain: {site_name}")
     if not shell.run(["which", "certbot"]):
         console.print("[blue]Certbot not found. Installing certbot...[/blue]")

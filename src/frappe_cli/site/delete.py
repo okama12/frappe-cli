@@ -40,7 +40,7 @@ class RichShell:
         try:
             result = os.system(' '.join(cmd))
             if result != 0:
-                raise Exception(f"Command failed: {' '.join(cmd)}")
+                raise click.ClickException(f"Command failed: {' '.join(cmd)}")
             logger.info(f"[site] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
@@ -58,9 +58,14 @@ class RichShell:
 @click.option('--site-name', prompt='Enter site name (FQDN recommended)', default=lambda: os.uname()[1], show_default=True, help='Site name (FQDN)')
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
-@click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
-def delete(bench_name, site_name, dry_run, debug, ignore_errors):
-    """Delete a Frappe site (drops database and removes site folder)."""
+@click.pass_context
+def delete(ctx, bench_name, site_name, dry_run, debug):
+    """
+    Delete a Frappe site (drops database and removes site folder).
+
+    Example:
+        frappe site delete --bench-name mybench --site-name example.com --debug
+    """
     logger.info(f"[site] Deleting site: {site_name} from bench: {bench_name}")
     user_home = os.path.expanduser('~')
     if not os.path.isabs(bench_name):

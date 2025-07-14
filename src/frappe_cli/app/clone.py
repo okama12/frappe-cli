@@ -71,13 +71,18 @@ def fix_ownership(path):
 
 @click.command()
 @click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
-@click.option('--repo-url', help='GitHub repository URL')
-@click.option('--branch', help='Branch to clone')
+@click.option('--repo-url', prompt='Enter repository URL', help='GitHub repository URL')
+@click.option('--branch', prompt='Enter branch (default: main)', default='main', show_default=True, help='Git branch to clone')
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
 def clone(bench_name, repo_url, branch, dry_run, debug, ignore_errors):
-    """Clone and validate a Frappe-compatible app from GitHub."""
+    """
+    Clone and validate a Frappe-compatible app from GitHub.
+
+    Example:
+        frappe app clone --bench-name mybench --repo-url https://github.com/frappe/frappe.git --branch main --debug
+    """
     # Abort if run as root
     if os.geteuid() == 0:
         console.print("[bold red]Do not run this script as root! Use a regular user for security and correct permissions.[/bold red]")

@@ -26,7 +26,12 @@ logger = setup_logger()
 @click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
 @click.option('--site-name', prompt='Enter site name', help='Frappe site name')
 def uninstall(bench_name, site_name):
-    """Remove the bench, site, and optionally logs."""
+    """
+    Remove the bench, site, and optionally logs.
+
+    Example:
+        frappe rollback uninstall --bench-name mybench --site-name example.com
+    """
     logger.info(f"[rollback] Uninstall initiated for bench: {bench_name}, site: {site_name}")
     if not click.confirm(f"This will remove the bench '{bench_name}', site '{site_name}', and optionally logs. Continue?", abort=True):
         logger.info("[rollback] Uninstall cancelled by user.")

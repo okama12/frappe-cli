@@ -23,32 +23,20 @@ def setup_logger():
 
 logger = setup_logger()
 
-@click.group()
-def logrotate():
-    """Log rotation management commands."""
-    pass
+@click.command()
+def logrotate_maintenance():
+    """
+    Set up logrotate for /var/log/frappe-installer.log.
 
-@logrotate.command()
-def setup():
-    """Set up logrotate for /var/log/frappe-installer.log."""
+    Example:
+        frappe maintenance logrotate
+    """
     logger.info("[logrotate] Setting up logrotate for /var/log/frappe-installer.log...")
-    conf_content = f"""{LOG_FILE} {{
-    daily
-    rotate 7
-    compress
-    missingok
-    notifempty
-    create 640 root adm
-    sharedscripts
-    postrotate
-        systemctl reload rsyslog > /dev/null 2>&1 || true
-    endscript
-}}
-"""
+    conf_content = f"""{LOG_FILE} {{\n    daily\n    rotate 7\n    compress\n    missingok\n    notifempty\n    create 640 root adm\n    sharedscripts\n    postrotate\n        systemctl reload rsyslog > /dev/null 2>&1 || true\n    endscript\n}}\n"""
     with open("/tmp/frappe-installer-logrotate.conf", "w") as f:
         f.write(conf_content)
     shell.run(["sudo", "mv", "/tmp/frappe-installer-logrotate.conf", LOGROTATE_CONF])
     shell.run(["sudo", "chmod", "644", LOGROTATE_CONF])
     shell.run(["sudo", "logrotate", "-f", LOGROTATE_CONF])
     console.print("[green]Logrotate set up for /var/log/frappe-installer.log.[/green]")
-    logger.info("[logrotate] Logrotate set up for /var/log/frappe-installer.log.") 
+    logger.info("[logrotate] Logrotate set up for /var/log/frappe-installer.log.")
