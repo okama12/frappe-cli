@@ -9,7 +9,23 @@ description = "Professional CLI for Frappe deployment and management."
 authors = [
     { name = "Rashidi Okama", email = "rashidokama@gmail.com" }
 ]
+readme = "README.md"
 requires-python = ">=3.10"
+keywords = ["frappe", "cli", "deployment", "management", "automation"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: System Administrators",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
+    "Topic :: Utilities",
+]
 dependencies = [
     "click>=8.0",
     "pyyaml>=6.0",

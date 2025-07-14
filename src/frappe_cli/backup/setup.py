@@ -2,8 +2,11 @@ import click
 import os
 from ..utils import shell
 import logging
+from rich.console import Console
+from ..utils.errors import FrappeCLIError, print_success, print_warning
 
 LOG_FILE = "/var/log/frappe-installer.log"
+console = Console()
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.backup.setup")
@@ -28,36 +31,38 @@ def setup(admin_email, bench_name, site_name):
     """Set up robust backups with external HD and cron job."""
     logger.info(f"[backup] Setting up backup for site: {site_name} in bench: {bench_name}")
     # Test email
-    click.echo(f"Sending test email to {admin_email}...")
+    console.print(f"[blue]Sending test email to {admin_email}...[/blue]")
     shell.run(["bash", "-c", f"echo 'This is a test email from the Frappe Installer backup system.' | mail -s '[TEST] Frappe Backup Email Test' '{admin_email}'"])
-    click.confirm("Did you receive the test email?", abort=True)
+    if not click.confirm("Did you receive the test email?", abort=True):
+        print_warning("Test email not received. Please check your email settings.")
+        return
     # Detect external HD by UUID
-    click.echo("Detecting available external drives...")
-    lsblk_out = shell.run(["lsblk", "-o", "NAME,UUID,MOUNTPOINT"])
+    console.print("[blue]Detecting available external drives...[/blue]")
+    lsblk_out = shell.run(["lsblk", "-o", "NAME,UUID,MOUNTPOINT"]) or ""
     devices = []
     for line in lsblk_out.splitlines():
         parts = line.split()
         if len(parts) == 3 and parts[2] == '':
             devices.append((parts[0], parts[1]))
     if not devices:
-        click.secho("No unmounted external drives detected. Please insert the backup drive and rerun.", fg="red")
+        print_warning("No unmounted external drives detected. Please insert the backup drive and rerun.")
         logger.error("[backup] No unmounted external drives detected.")
         return
-    click.echo("Available drives:")
+    console.print("[blue]Available drives:[/blue]")
     for i, (name, uuid) in enumerate(devices):
-        click.echo(f"{i+1}: {name} ({uuid})")
+        console.print(f"{i+1}: {name} ({uuid})")
     idx = click.prompt("Select drive number for backup", type=int, default=1) - 1
     hd_uuid = devices[idx][1]
     # Prepare backup destination
     shell.run(["sudo", "mkdir", "-p", "/mnt/external_hd"])
     fstab_line = f"UUID={hd_uuid} /mnt/external_hd auto nosuid,nodev,nofail,x-gvfs-show 0 0"
-    fstab = shell.run(["cat", "/etc/fstab"])
+    fstab = shell.run(["cat", "/etc/fstab"]) or ""
     if fstab_line not in fstab:
         shell.run(["bash", "-c", f"echo '{fstab_line}' | sudo tee -a /etc/fstab"])
     shell.run(["sudo", "mount", "/mnt/external_hd"])
     backup_dest = f"/mnt/external_hd/backups/{site_name}"
     shell.run(["sudo", "mkdir", "-p", backup_dest])
-    shell.run(["sudo", "chown", os.getenv("USER"), backup_dest])
+    shell.run(["sudo", "chown", os.getenv("USER") or "frappe", backup_dest])
     # Create backup script
     backup_script = "/usr/local/bin/frappe_site_backup.sh"
     script_content = f'''#!/bin/bash
@@ -101,4 +106,4 @@ ls -1t "$BACKUP_DEST"/backup-*.zip | tail -n +8 | xargs -r rm --
     if cron_line not in crontab:
         shell.run(["bash", "-c", f"(sudo crontab -l 2>/dev/null | grep -v '{backup_script}'; echo '{cron_line}') | sudo crontab -"])
     logger.info(f"[backup] Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.")
-    click.secho(f"Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.", fg="green") 
+    print_success(f"Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.") 

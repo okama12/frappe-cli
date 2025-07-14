@@ -40,12 +40,11 @@ class RichShell:
             return 0
         self.console.print(f"[blue]{description}...[/blue]")
         try:
-            result = os.system(' '.join(cmd))
-            if result != 0:
-                raise Exception(f"Command failed: {' '.join(cmd)}")
+            # Use shell.run for safety, but keep output/flow the same
+            result = shell.run(cmd, check=True, capture_output=False)
             logger.info(f"[clone] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
-            return result
+            return 0
         except Exception as e:
             logger.error(f"[clone] Failed: {' '.join(cmd)} - {e}")
             self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")

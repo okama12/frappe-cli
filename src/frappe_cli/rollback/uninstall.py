@@ -2,8 +2,10 @@ import click
 import os
 from ..utils import shell
 import logging
+from rich.console import Console
 
 LOG_FILE = "/var/log/frappe-installer.log"
+console = Console()
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.rollback.uninstall")
@@ -45,4 +47,4 @@ def uninstall(bench_name, site_name):
     # Remove bench and logs
     shell.run(["sudo", "rm", "-rf", bench_name, LOG_FILE])
     logger.info(f"[rollback] Uninstall complete for bench: {bench_name}, site: {site_name}")
-    click.secho("Uninstall complete.", fg="green") 
+    console.print("[green]Uninstall complete.[/green]") 

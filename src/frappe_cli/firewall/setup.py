@@ -1,8 +1,10 @@
 import click
 from ..utils import shell
 import logging
+from rich.console import Console
 
 LOG_FILE = "/var/log/frappe-installer.log"
+console = Console()
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.firewall.setup")
@@ -23,13 +25,13 @@ logger = setup_logger()
 def setup():
     """Configure UFW firewall for production best practices."""
     logger.info("[firewall] Configuring UFW firewall...")
-    click.echo("Setting default UFW policies...")
+    console.print("[blue]Setting default UFW policies...[/blue]")
     shell.run(["sudo", "ufw", "default", "deny", "incoming"])
     shell.run(["sudo", "ufw", "default", "allow", "outgoing"])
-    click.echo("Allowing SSH (OpenSSH)...")
+    console.print("[blue]Allowing SSH (OpenSSH)...[/blue]")
     shell.run(["sudo", "ufw", "allow", "OpenSSH"])
     shell.run(["sudo", "ufw", "limit", "OpenSSH"])
-    click.echo("Allowing HTTP/HTTPS (Nginx Full)...")
+    console.print("[blue]Allowing HTTP/HTTPS (Nginx Full)...[/blue]")
     shell.run(["sudo", "ufw", "allow", "'Nginx Full'"])
     if click.confirm("Do you want to allow any additional custom ports/services?", default=False):
         custom_ports = click.prompt("Enter additional ports/services to allow (comma-separated, e.g. 2222/tcp,3306/tcp)", default="")
@@ -37,12 +39,11 @@ def setup():
             shell.run(["sudo", "ufw", "allow", port])
             logger.info(f"[firewall] Allowed custom port/service: {port}")
     shell.run(["sudo", "ufw", "logging", "on"])
-    # Warn if SSH is not allowed
-    status = shell.run(["sudo", "ufw", "status"])
+    status = shell.run(["sudo", "ufw", "status"]) or ""
     if "OpenSSH" not in status:
-        click.secho("Warning: SSH is not allowed in UFW rules. You may lock yourself out!", fg="red")
+        console.print("[red]Warning: SSH is not allowed in UFW rules. You may lock yourself out![/red]")
         logger.warning("[firewall] SSH is not allowed in UFW rules.")
     shell.run(["sudo", "ufw", "--force", "enable"])
-    status = shell.run(["sudo", "ufw", "status", "verbose"])
-    click.echo(f"UFW is now enabled and configured.\n\n{status}")
+    status = shell.run(["sudo", "ufw", "status", "verbose"]) or ""
+    console.print(f"[blue]UFW is now enabled and configured.[/blue]\n\n{status}")
     logger.info(f"[firewall] UFW firewall configured.\n{status}") 

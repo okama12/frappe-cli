@@ -2,10 +2,11 @@ import click
 import os
 from ..utils import shell
 import logging
+from rich.console import Console
 
 LOG_FILE = "/var/log/frappe-installer.log"
 LOGROTATE_CONF = "/etc/logrotate.d/frappe-installer"
-
+console = Console()
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.logrotate")
@@ -49,5 +50,5 @@ def setup():
     shell.run(["sudo", "mv", "/tmp/frappe-installer-logrotate.conf", LOGROTATE_CONF])
     shell.run(["sudo", "chmod", "644", LOGROTATE_CONF])
     shell.run(["sudo", "logrotate", "-f", LOGROTATE_CONF])
-    click.secho("Logrotate set up for /var/log/frappe-installer.log.", fg="green")
+    console.print("[green]Logrotate set up for /var/log/frappe-installer.log.[/green]")
     logger.info("[logrotate] Logrotate set up for /var/log/frappe-installer.log.") 
