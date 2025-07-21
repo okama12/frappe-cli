@@ -1,6 +1,7 @@
 # This file marks the install directory as a Python package.
 
 import click
+
 from .bench import bench
 from .deps import deps
 from .fail2ban import fail2ban
@@ -11,11 +12,12 @@ from .ssh_hardening import ssh_hardening
 from .system import system
 from .user import user
 
-@click.group()
 
+@click.group()
 def install():
     """Install and setup commands for Frappe"""
     pass
+
 
 install.add_command(bench)
 install.add_command(deps)

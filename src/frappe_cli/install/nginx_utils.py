@@ -1,13 +1,16 @@
 """
 nginx_utils.py: Utilities for NGINX config management, deduplication, backup, and validation.
 """
+
 import os
 import shutil
 import subprocess
-from typing import List, Dict, Set, Tuple
+from typing import Dict, List
+
 from rich.console import Console
 
 console = Console()
+
 
 def backup_nginx_configs(backup_dir: str) -> List[str]:
     """
@@ -27,6 +30,7 @@ def backup_nginx_configs(backup_dir: str) -> List[str]:
                     backed_up.append(dst)
     return backed_up
 
+
 def restore_nginx_configs(backup_dir: str):
     """
     Restore all NGINX config files from backup_dir to their original locations.
@@ -38,6 +42,7 @@ def restore_nginx_configs(backup_dir: str):
             dst = os.path.join(orig_dir, orig_name)
             src = os.path.join(backup_dir, f)
             shutil.copy2(src, dst)
+
 
 def clean_nginx_upstreams_crossfile(console: Console) -> Dict[str, List[str]]:
     """
@@ -52,20 +57,23 @@ def clean_nginx_upstreams_crossfile(console: Console) -> Dict[str, List[str]]:
                 path = os.path.join(d, f)
                 if os.path.isfile(path) or os.path.islink(path):
                     try:
-                        with open(path, 'r') as fh:
+                        with open(path, "r") as fh:
                             for line in fh:
                                 if line.strip().startswith("upstream ") and "{" in line:
                                     parts = line.strip().split()
                                     if len(parts) >= 2:
-                                        name = parts[1].rstrip('{').strip()
+                                        name = parts[1].rstrip("{").strip()
                                         upstream_map.setdefault(name, []).append(path)
                     except Exception:
                         continue
     # Warn if any upstream appears in more than one file
     for name, files in upstream_map.items():
         if len(files) > 1:
-            console.print(f"[yellow]Warning: Upstream '{name}' appears in multiple files: {files}[/yellow]")
+            console.print(
+                f"[yellow]Warning: Upstream '{name}' appears in multiple files: {files}[/yellow]"
+            )
     return {k: v for k, v in upstream_map.items() if len(v) > 1}
+
 
 def validate_nginx_config() -> bool:
     """
@@ -78,7 +86,7 @@ def validate_nginx_config() -> bool:
             return True
 
         else:
-            console.print(f"[bold red]✗ Nginx configuration test failed:[/bold red]")
+            console.print("[bold red]✗ Nginx configuration test failed:[/bold red]")
             console.print(f"[red]{result.stdout}[/red]")
             console.print(f"[red]{result.stderr}[/red]")
             return False

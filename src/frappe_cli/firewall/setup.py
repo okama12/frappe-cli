@@ -1,10 +1,13 @@
-import click
-from ..utils import shell
 import logging
+
+import click
 from rich.console import Console
+
+from ..utils import shell
 
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.firewall.setup")
@@ -13,16 +16,17 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 
-@click.command()
 
+@click.command()
 def setup():
     """
     Configure UFW firewall for production best practices.
@@ -39,15 +43,22 @@ def setup():
     shell.run(["sudo", "ufw", "limit", "OpenSSH"])
     console.print("[blue]Allowing HTTP/HTTPS (Nginx Full)...[/blue]")
     shell.run(["sudo", "ufw", "allow", "'Nginx Full'"])
-    if click.confirm("Do you want to allow any additional custom ports/services?", default=False):
-        custom_ports = click.prompt("Enter additional ports/services to allow (comma-separated, e.g. 2222/tcp,3306/tcp)", default="")
-        for port in [p.strip() for p in custom_ports.split(',') if p.strip()]:
+    if click.confirm(
+        "Do you want to allow any additional custom ports/services?", default=False
+    ):
+        custom_ports = click.prompt(
+            "Enter additional ports/services to allow (comma-separated, e.g. 2222/tcp, 3306/tcp)",
+            default="",
+        )
+        for port in [p.strip() for p in custom_ports.split(",") if p.strip()]:
             shell.run(["sudo", "ufw", "allow", port])
             logger.info(f"[firewall] Allowed custom port/service: {port}")
     shell.run(["sudo", "ufw", "logging", "on"])
     status = shell.run(["sudo", "ufw", "status"]) or ""
     if "OpenSSH" not in status:
-        console.print("[red]Warning: SSH is not allowed in UFW rules. You may lock yourself out![/red]")
+        console.print(
+            "[red]Warning: SSH is not allowed in UFW rules. You may lock yourself out![/red]"
+        )
         logger.warning("[firewall] SSH is not allowed in UFW rules.")
     shell.run(["sudo", "ufw", "--force", "enable"])
     status = shell.run(["sudo", "ufw", "status", "verbose"]) or ""

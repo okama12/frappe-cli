@@ -1,14 +1,18 @@
-from typing import Optional, Dict, Any, List, Union, Callable, TypeVar, cast
 import os
 import re
-import click
 from pathlib import Path
+from typing import Callable, List, Optional, TypeVar, Union, cast
 
-from .errors import ValidationError, ResourceNotFoundError
+import click
 
-T = TypeVar('T')
+from .errors import ResourceNotFoundError, ValidationError
 
-def validate_path_exists(path: Union[str, Path], error_message: Optional[str] = None) -> Path:
+T = TypeVar("T")
+
+
+def validate_path_exists(
+    path: Union[str, Path], error_message: Optional[str] = None
+) -> Path:
     """
     Validate that a path exists.
 
@@ -24,14 +28,14 @@ def validate_path_exists(path: Union[str, Path], error_message: Optional[str] = 
     """
     path_obj = Path(path)
     if not path_obj.exists():
-        raise ResourceNotFoundError(
-            error_message or f"Path does not exist: {path}"
-        )
+        raise ResourceNotFoundError(error_message or f"Path does not exist: {path}")
 
     return path_obj
 
 
-def validate_directory_exists(path: Union[str, Path], error_message: Optional[str] = None) -> Path:
+def validate_directory_exists(
+    path: Union[str, Path], error_message: Optional[str] = None
+) -> Path:
     """
     Validate that a directory exists.
 
@@ -48,14 +52,14 @@ def validate_directory_exists(path: Union[str, Path], error_message: Optional[st
     """
     path_obj = validate_path_exists(path, error_message)
     if not path_obj.is_dir():
-        raise ValidationError(
-            error_message or f"Path is not a directory: {path}"
-        )
+        raise ValidationError(error_message or f"Path is not a directory: {path}")
 
     return path_obj
 
 
-def validate_file_exists(path: Union[str, Path], error_message: Optional[str] = None) -> Path:
+def validate_file_exists(
+    path: Union[str, Path], error_message: Optional[str] = None
+) -> Path:
     """
     Validate that a file exists.
 
@@ -72,9 +76,7 @@ def validate_file_exists(path: Union[str, Path], error_message: Optional[str] = 
     """
     path_obj = validate_path_exists(path, error_message)
     if not path_obj.is_file():
-        raise ValidationError(
-            error_message or f"Path is not a file: {path}"
-        )
+        raise ValidationError(error_message or f"Path is not a file: {path}")
 
     return path_obj
 
@@ -88,12 +90,13 @@ def validate_sudo_access() -> None:
     """
     if os.geteuid() != 0:
         raise ValidationError(
-            "This command requires sudo access",
-            "Please run this command with sudo"
+            "This command requires sudo access", "Please run this command with sudo"
         )
 
 
-def validate_pattern(value: str, pattern: str, error_message: Optional[str] = None) -> str:
+def validate_pattern(
+    value: str, pattern: str, error_message: Optional[str] = None
+) -> str:
     """
     Validate that a string matches a regular expression pattern.
 
@@ -116,7 +119,9 @@ def validate_pattern(value: str, pattern: str, error_message: Optional[str] = No
     return value
 
 
-def validate_choice(value: T, choices: List[T], error_message: Optional[str] = None) -> T:
+def validate_choice(
+    value: T, choices: List[T], error_message: Optional[str] = None
+) -> T:
     """
     Validate that a value is one of the allowed choices.
 
@@ -134,7 +139,8 @@ def validate_choice(value: T, choices: List[T], error_message: Optional[str] = N
     if value not in choices:
         choices_str = ", ".join(str(c) for c in choices)
         raise ValidationError(
-            error_message or f"Value '{value}' is not one of the allowed choices: {choices_str}"
+            error_message
+            or f"Value '{value}' is not one of the allowed choices: {choices_str}"
         )
 
     return value
@@ -155,16 +161,18 @@ def validate_not_empty(value: str, error_message: Optional[str] = None) -> str:
         ValidationError: If the string is empty
     """
     if not value.strip():
-        raise ValidationError(
-            error_message or "Value cannot be empty"
-        )
+        raise ValidationError(error_message or "Value cannot be empty")
 
     return value
 
 
-def click_path_exists(exists: bool = True, file_okay: bool = True,
-                     dir_okay: bool = True, readable: bool = True,
-                     resolve_path: bool = True) -> Callable[[click.Context, click.Parameter, str], Path]:
+def click_path_exists(
+    exists: bool = True,
+    file_okay: bool = True,
+    dir_okay: bool = True,
+    readable: bool = True,
+    resolve_path: bool = True,
+) -> Callable[[click.Context, click.Parameter, str], Path]:
     """
     Click parameter type for validating paths.
 
@@ -178,6 +186,7 @@ def click_path_exists(exists: bool = True, file_okay: bool = True,
     Returns:
         A Click parameter type function
     """
+
     def _validate_path(ctx: click.Context, param: click.Parameter, value: str) -> Path:
         if not value:
             return cast(Path, value)

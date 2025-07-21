@@ -1,11 +1,13 @@
 import subprocess
-import os
-from typing import List, Optional, Dict, Any, Union, Tuple
+from typing import Any, List, Optional, Union
+
 from rich.console import Console
+
 from .logging import get_logger
 
 # Get a logger for this module
 logger = get_logger("utils.shell")
+
 
 def run(
     cmd: List[str],
@@ -13,7 +15,7 @@ def run(
     capture_output: bool = True,
     text: bool = True,
     sudo: bool = False,
-    **kwargs: Any
+    **kwargs: Any,
 ) -> Optional[str]:
     """
     Run a command using subprocess.run and return its output.
@@ -37,11 +39,7 @@ def run(
 
     try:
         result = subprocess.run(
-            cmd,
-            check=check,
-            capture_output=capture_output,
-            text=text,
-            **kwargs
+            cmd, check=check, capture_output=capture_output, text=text, **kwargs
         )
 
         return result.stdout.strip() if capture_output else None
@@ -60,7 +58,7 @@ class RichShellRunner:
         console: Console,
         dry_run: bool = False,
         debug: bool = False,
-        module_name: str = "shell"
+        module_name: str = "shell",
     ):
         """
         Initialize the RichShellRunner.
@@ -82,7 +80,7 @@ class RichShellRunner:
         description: str,
         ignore_errors: bool = False,
         capture_output: bool = False,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Union[int, str, None]:
         """
         Run a command with rich output.
@@ -106,7 +104,9 @@ class RichShellRunner:
             self.console.print(f"[dim]DEBUG: Command: {' '.join(cmd)}[/dim]")
 
         if self.dry_run:
-            self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}[/yellow]")
+            self.console.print(
+                f"[yellow][dry-run] {description}: {' '.join(cmd)}[/yellow]"
+            )
             self.logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return 0
 
@@ -116,11 +116,7 @@ class RichShellRunner:
             if capture_output:
                 # Use subprocess.run for capturing output
                 result = subprocess.run(
-                    cmd,
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                    **kwargs
+                    cmd, check=True, capture_output=True, text=True, **kwargs
                 )
 
                 self.logger.info(f"Success: {description}")
@@ -141,7 +137,7 @@ class RichShellRunner:
             if not ignore_errors:
                 raise click.ClickException(f"Command failed: {' '.join(cmd)}")
             else:
-                self.console.print(f"[yellow]Continuing despite error...[/yellow]")
+                self.console.print("[yellow]Continuing despite error...[/yellow]")
                 return e.returncode
 
         except Exception as e:
@@ -151,5 +147,5 @@ class RichShellRunner:
             if not ignore_errors:
                 raise click.ClickException(str(e))
             else:
-                self.console.print(f"[yellow]Continuing despite error...[/yellow]")
+                self.console.print("[yellow]Continuing despite error...[/yellow]")
                 return 1

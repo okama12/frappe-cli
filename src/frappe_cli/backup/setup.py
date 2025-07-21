@@ -1,20 +1,25 @@
-import click
-import os
-from ..utils import shell
 import logging
+import os
+
+import click
 from rich.console import Console
-from ..utils.errors import FrappeCliError
+
+from ..utils import shell
 
 # Helper functions for consistent output
+
 
 def print_success(message):
     Console().print(f"[bold green]✓ {message}[/bold green]")
 
+
 def print_warning(message):
     Console().print(f"[bold yellow]⚠ {message}[/bold yellow]")
 
+
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.backup.setup")
@@ -23,19 +28,30 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 
-@click.command()
-@click.option('--admin-email', prompt='Enter admin email for backup alerts', help='Admin email for backup alerts')
-@click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
-@click.option('--site-name', prompt='Enter site name', help='Frappe site name')
 
+@click.command()
+@click.option(
+    "--admin-email",
+    prompt="Enter admin email for backup alerts",
+    help="Admin email for backup alerts",
+)
+@click.option(
+    "--bench-name",
+    prompt="Enter bench name (folder)",
+    default="frappe-bench",
+    _show_default=True,
+    help="Bench directory name",
+)
+@click.option("--site-name", prompt="Enter site name", help="Frappe site name")
 def setup(admin_email, bench_name, site_name):
     """
     Set up robust backups with external HD and cron job.
@@ -43,11 +59,19 @@ def setup(admin_email, bench_name, site_name):
     Example:
         frappe backup setup --admin-email user@example.com --bench-name mybench --site-name example.com
     """
-    logger.info(f"[backup] Setting up backup for site: {site_name} in bench: {bench_name}")
+    logger.info(
+        f"[backup] Setting up backup for site: {site_name} in bench: {bench_name}"
+    )
     # Test email
     console.print(f"[blue]Sending test email to {admin_email}...[/blue]")
-    shell.run(["bash", "-c", f"echo 'This is a test email from the Frappe Installer backup system.' | mail -s '[TEST] Frappe Backup Email Test' '{admin_email}'"])
-    if not click.confirm("Did you receive the test email?", abort=True):
+    shell.run(
+        [
+            "bash",
+            "-c",
+            f"echo 'This is a test email from the Frappe Installer backup system.' | mail -s '[TEST] Frappe Backup Email Test' '{admin_email}'",
+        ]
+    )
+    if not click.confirm("Did you receive the test email?", _abort=True):
         print_warning("Test email not received. Please check your email settings.")
         return
 
@@ -57,10 +81,12 @@ def setup(admin_email, bench_name, site_name):
     devices = []
     for line in lsblk_out.splitlines():
         parts = line.split()
-        if len(parts) == 3 and parts[2] == '':
+        if len(parts) == 3 and parts[2] == "":
             devices.append((parts[0], parts[1]))
     if not devices:
-        print_warning("No unmounted external drives detected. Please insert the backup drive and rerun.")
+        print_warning(
+            "No unmounted external drives detected. Please insert the backup drive and rerun."
+        )
         logger.error("[backup] No unmounted external drives detected.")
         return
 
@@ -71,7 +97,9 @@ def setup(admin_email, bench_name, site_name):
     hd_uuid = devices[idx][1]
     # Prepare backup destination
     shell.run(["sudo", "mkdir", "-p", "/mnt/external_hd"])
-    fstab_line = f"UUID={hd_uuid} /mnt/external_hd auto nosuid,nodev,nofail,x-gvfs-show 0 0"
+    fstab_line = (
+        f"UUID={hd_uuid} /mnt/external_hd auto nosuid,nodev,nofail,x-gvfs-show 0 0"
+    )
     fstab = shell.run(["cat", "/etc/fstab"]) or ""
     if fstab_line not in fstab:
         shell.run(["bash", "-c", f"echo '{fstab_line}' | sudo tee -a /etc/fstab"])
@@ -81,7 +109,7 @@ def setup(admin_email, bench_name, site_name):
     shell.run(["sudo", "chown", os.getenv("USER") or "frappe", backup_dest])
     # Create backup script
     backup_script = "/usr/local/bin/frappe_site_backup.sh"
-    script_content = f'''#!/bin/bash
+    script_content = f"""#!/bin/bash
 BACKUP_SRC1="$HOME/{bench_name}/sites/{site_name}/private/backups"
 BACKUP_SRC2="$HOME/{bench_name}/sites/{site_name}/private/files"
 BACKUP_SRC3="$HOME/{bench_name}/sites/{site_name}/public/files"
@@ -111,7 +139,7 @@ else
 fi
 # Retain only last 7 backups
 ls -1t "$BACKUP_DEST"/backup-*.zip | tail -n +8 | xargs -r rm --
-'''
+"""
     with open("/tmp/frappe_site_backup.sh", "w") as f:
         f.write(script_content)
     shell.run(["sudo", "mv", "/tmp/frappe_site_backup.sh", backup_script])
@@ -120,6 +148,16 @@ ls -1t "$BACKUP_DEST"/backup-*.zip | tail -n +8 | xargs -r rm --
     crontab = shell.run(["sudo", "crontab", "-l"], check=False) or ""
     cron_line = f"0 2 * * * {backup_script}"
     if cron_line not in crontab:
-        shell.run(["bash", "-c", f"(sudo crontab -l 2>/dev/null | grep -v '{backup_script}'; echo '{cron_line}') | sudo crontab -"])
-    logger.info(f"[backup] Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.")
-    print_success(f"Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.")
+        shell.run(
+            [
+                "bash",
+                "-c",
+                f"(sudo crontab -l 2>/dev/null | grep -v '{backup_script}'; echo '{cron_line}') | sudo crontab -",
+            ]
+        )
+    logger.info(
+        f"[backup] Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}."
+    )
+    print_success(
+        f"Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}."
+    )

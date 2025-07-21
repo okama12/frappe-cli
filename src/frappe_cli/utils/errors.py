@@ -1,5 +1,7 @@
-from typing import Optional, Dict, Any, List, Union, Type
+from typing import List, Optional
+
 import click
+
 
 class FrappeCliError(Exception):
     """
@@ -7,6 +9,7 @@ class FrappeCliError(Exception):
 
     This provides a consistent interface for error handling throughout the application.
     """
+
     exit_code: int = 1
 
     def __init__(self, message: str, details: Optional[str] = None):
@@ -47,6 +50,7 @@ class ConfigurationError(FrappeCliError):
     """
     Error raised when there's an issue with configuration.
     """
+
     exit_code = 2
 
 
@@ -54,6 +58,7 @@ class ValidationError(FrappeCliError):
     """
     Error raised when validation fails.
     """
+
     exit_code = 3
 
 
@@ -61,9 +66,15 @@ class CommandError(FrappeCliError):
     """
     Error raised when a command fails.
     """
+
     exit_code = 4
 
-    def __init__(self, message: str, command: Optional[List[str]] = None, details: Optional[str] = None):
+    def __init__(
+        self,
+        message: str,
+        command: Optional[List[str]] = None,
+        details: Optional[str] = None,
+    ):
         """
         Initialize a new CommandError.
 
@@ -93,6 +104,7 @@ class PermissionError(FrappeCliError):
     """
     Error raised when permission is denied.
     """
+
     exit_code = 5
 
 
@@ -100,6 +112,7 @@ class ResourceNotFoundError(FrappeCliError):
     """
     Error raised when a required resource is not found.
     """
+
     exit_code = 6
 
 
@@ -107,6 +120,7 @@ class NetworkError(FrappeCliError):
     """
     Error raised when a network operation fails.
     """
+
     exit_code = 7
 
 

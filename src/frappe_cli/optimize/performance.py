@@ -1,9 +1,11 @@
-import click
 import logging
+
+import click
 from rich.console import Console
 
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.optimize.performance")
@@ -12,16 +14,17 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 
-@click.command()
 
+@click.command()
 def performance():
     """
     Optimize Frappe/Server performance (stub).
@@ -29,5 +32,7 @@ def performance():
     Example:
         frappe optimize performance
     """
-    logger.info(f"[optimize] Performance called.")
-    console.print(f"[yellow][STUB] Would optimize server performance. Not yet implemented.[/yellow]")
+    logger.info("[optimize] Performance called.")
+    console.print(
+        "[yellow][STUB] Would optimize server performance. Not yet implemented.[/yellow]"
+    )

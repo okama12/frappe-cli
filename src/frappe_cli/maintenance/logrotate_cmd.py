@@ -1,12 +1,14 @@
-import click
-import os
-from ..utils import shell
 import logging
+
+import click
 from rich.console import Console
+
+from ..utils import shell
 
 LOG_FILE = "/var/log/frappe-installer.log"
 LOGROTATE_CONF = "/etc/logrotate.d/frappe-installer"
 console = Console()
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.logrotate")
@@ -15,16 +17,17 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 
-@click.command()
 
+@click.command()
 def logrotate_maintenance():
     """
     Set up logrotate for /var/log/frappe-installer.log.

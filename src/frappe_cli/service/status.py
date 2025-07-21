@@ -1,16 +1,18 @@
-import click
-import os
 import logging
-from ..utils import shell
+import os
+
+import click
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
-from rich.text import Text
+
+from ..utils import shell
 
 LOG_FILE = "/var/log/frappe-installer.log"
 SERVICES = ["mariadb", "redis-server", "nginx", "supervisor"]
 
 # Logger setup (as in deps.py)
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.service.status")
@@ -19,16 +21,18 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 console = Console()
 
 # Helper to run shell commands and handle errors
+
 
 class ShellRunner:
     def __init__(self, console, logger):
@@ -37,16 +41,21 @@ class ShellRunner:
 
     def run(self, cmd, description=None, check=True):
         try:
-            if hasattr(shell, 'run'):
+            if hasattr(shell, "run"):
                 result = shell.run(cmd)
             else:
                 import subprocess
-                result = subprocess.run(cmd, check=check, capture_output=True, text=True)
+
+                result = subprocess.run(
+                    cmd, check=check, capture_output=True, _text=True
+                )
                 result = result.stdout
             if result is None:
                 if description:
-                    self.console.print(f"[yellow]Warning: {description} returned no output[/yellow]")
-                return ''
+                    self.console.print(
+                        f"[yellow]Warning: {description} returned no output[/yellow]"
+                    )
+                return ""
 
             return result
 
@@ -56,26 +65,43 @@ class ShellRunner:
             self.logger.error(msg)
             if check:
                 raise click.ClickException(f"Command failed: {str(e)}")
-            return ''
+            return ""
+
 
 shell_runner = ShellRunner(console, logger)
 
-@click.command()
-@click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
-@click.option('--site-name', prompt='Enter site name', default='', show_default=False, help='Frappe site name (optional)')
 
+@click.command()
+@click.option(
+    "--bench-name",
+    prompt="Enter bench name (folder)",
+    default="frappe-bench",
+    show_default=True,
+    help="Bench directory name",
+)
+@click.option(
+    "--site-name",
+    prompt="Enter site name",
+    default="",
+    show_default=False,
+    help="Frappe site name (optional)",
+)
 def status(bench_name, site_name):
     """Show system, service, and Frappe/Bench status with rich output."""
     logger.info("[service] Checking system status...")
-    console.print(Panel.fit("[bold blue]System Information[/bold blue]", border_style="blue"))
+    console.print(
+        Panel.fit("[bold blue]System Information[/bold blue]", border_style="blue")
+    )
     # Hostname
     console.print(f"[cyan]Hostname:[/cyan] {os.uname().nodename}")
     # OS
-    os_release = shell_runner.run(["cat", "/etc/os-release"], description="Get OS release info", check=False)
+    os_release = shell_runner.run(
+        ["cat", "/etc/os-release"], description="Get OS release info", check=False
+    )
     os_name = "Unknown"
     for line in os_release.splitlines():
         if line.startswith("PRETTY_NAME"):
-            os_name = line.split('=')[1].strip().strip('"')
+            os_name = line.split("=")[1].strip().strip('"')
             break
     console.print(f"[cyan]OS:[/cyan] {os_name}")
     # Kernel
@@ -101,12 +127,18 @@ def status(bench_name, site_name):
     console.print()
 
     # Service Status
-    console.print(Panel.fit("[bold blue]Service Status[/bold blue]", border_style="blue"))
-    table = Table(show_header=True, header_style="bold magenta")
+    console.print(
+        Panel.fit("[bold blue]Service Status[/bold blue]", border_style="blue")
+    )
+    table = Table(show_header=True, _header_style="bold magenta")
     table.add_column("Service")
     table.add_column("Status")
     for service in SERVICES:
-        status = shell_runner.run(["systemctl", "is-active", service], description=f"Check {service} status", check=False)
+        status = shell_runner.run(
+            ["systemctl", "is-active", service],
+            description=f"Check {service} status",
+            check=False,
+        )
         if status.strip() == "active":
             table.add_row(service, "[green]Running[/green]")
         else:
@@ -115,10 +147,16 @@ def status(bench_name, site_name):
     console.print()
 
     # Frappe/Bench Status
-    console.print(Panel.fit("[bold blue]Frappe/Bench Status[/bold blue]", border_style="blue"))
-    bench_cli = shell_runner.run(["which", "bench"], description="Check Bench CLI", check=False)
+    console.print(
+        Panel.fit("[bold blue]Frappe/Bench Status[/bold blue]", border_style="blue")
+    )
+    bench_cli = shell_runner.run(
+        ["which", "bench"], description="Check Bench CLI", check=False
+    )
     if bench_cli.strip():
-        version = shell_runner.run(["bench", "--version"], description="Get Bench version", check=False)
+        version = shell_runner.run(
+            ["bench", "--version"], description="Get Bench version", check=False
+        )
         console.print(f"[green]Bench CLI:[/green] {version.strip()}")
         bench_path = bench_name
         if not os.path.isabs(bench_path):
@@ -128,14 +166,20 @@ def status(bench_name, site_name):
                 home_bench_path = os.path.expanduser(f"~/{bench_path}")
                 if os.path.isdir(home_bench_path):
                     bench_path = home_bench_path
-                    console.print(f"[yellow]Bench directory not found in current directory, using: {bench_path}[/yellow]")
+                    console.print(
+                        f"[yellow]Bench directory not found in current directory, using: {bench_path}[/yellow]"
+                    )
         if os.path.isdir(bench_path):
             console.print(f"[green]Bench directory:[/green] {bench_path} exists")
             sites_dir = os.path.join(bench_path, "sites")
             if site_name and os.path.isdir(os.path.join(sites_dir, site_name)):
                 console.print(f"[green]Site:[/green] {site_name} exists")
                 try:
-                    apps = shell_runner.run(["bench", "list-apps", "--site", site_name], description="List installed apps", check=False)
+                    apps = shell_runner.run(
+                        ["bench", "list-apps", "--site", site_name],
+                        description="List installed apps",
+                        check=False,
+                    )
                     if apps:
                         console.print("Installed apps:")
                         for app in apps.splitlines():
@@ -152,15 +196,23 @@ def status(bench_name, site_name):
     console.print()
 
     # SSL Certificate
-    console.print(Panel.fit("[bold blue]SSL Certificate[/bold blue]", border_style="blue"))
+    console.print(
+        Panel.fit("[bold blue]SSL Certificate[/bold blue]", border_style="blue")
+    )
     ssl_path = f"/etc/letsencrypt/live/{site_name}/fullchain.pem"
     if site_name and os.path.isfile(ssl_path):
-        exp_date = shell_runner.run(["openssl", "x509", "-enddate", "-noout", "-in", ssl_path], description="Check SSL expiry", check=False)
-        if exp_date and '=' in exp_date:
-            exp = exp_date.split('=')[1].strip()
+        exp_date = shell_runner.run(
+            ["openssl", "x509", "-enddate", "-noout", "-in", ssl_path],
+            description="Check SSL expiry",
+            check=False,
+        )
+        if exp_date and "=" in exp_date:
+            exp = exp_date.split("=")[1].strip()
             console.print(f"[green]SSL certificate valid until:[/green] {exp}")
         else:
-            console.print(f"[yellow]Could not determine SSL certificate expiry for {site_name}[/yellow]")
+            console.print(
+                f"[yellow]Could not determine SSL certificate expiry for {site_name}[/yellow]"
+            )
     else:
         console.print(f"[red]SSL certificate not found for {site_name}[/red]")
     logger.info("[service] Status check completed.")

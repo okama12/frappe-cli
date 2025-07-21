@@ -1,9 +1,11 @@
-import click
 import logging
+
+import click
 from rich.console import Console
 
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.config.validate")
@@ -12,17 +14,20 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 
-@click.command()
 
+@click.command()
 def validate():
     """Validate the config file (stub)."""
-    logger.info(f"[config] Validate called.")
-    console.print(f"[yellow][STUB] Would validate config file. Not yet implemented.[/yellow]")
+    logger.info("[config] Validate called.")
+    console.print(
+        "[yellow][STUB] Would validate config file. Not yet implemented.[/yellow]"
+    )

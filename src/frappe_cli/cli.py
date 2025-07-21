@@ -1,24 +1,28 @@
+import importlib.metadata
+
 import click
-from frappe_cli.install import install
-from frappe_cli.site import site
-from frappe_cli.ssl import ssl
-from frappe_cli.backup import backup
-from frappe_cli.service import service
-from frappe_cli.firewall import firewall
+
 from frappe_cli.app import app
-from frappe_cli.rollback import rollback
-from frappe_cli.maintenance import maintenance
+from frappe_cli.backup import backup
 from frappe_cli.config import config
+from frappe_cli.firewall import firewall
+from frappe_cli.install import install
+from frappe_cli.maintenance import maintenance
 from frappe_cli.monitor import monitor
 from frappe_cli.optimize import optimize
-import importlib.metadata
+from frappe_cli.rollback import rollback
+from frappe_cli.service import service
+from frappe_cli.site import site
+from frappe_cli.ssl import ssl
 
 __version__ = importlib.metadata.version("frappe-installer")
 
-@click.group()
-@click.option('--config', type=click.Path(exists=True), help='Path to YAML config file')
-@click.pass_context
 
+@click.group()
+@click.option(
+    "--config", _type=click.Path(exists=True), _help="Path to YAML config file"
+)
+@click.pass_context
 def cli(ctx, config):
     """Frappe Installer CLI - Automate Frappe deployment and management.
 
@@ -31,22 +35,25 @@ def cli(ctx, config):
     # from frappe_cli.config import load_config
     # ctx.obj['CONFIG'] = load_config(config)
 
-@cli.command()
 
+@cli.command()
 def version():
     """Show the Frappe CLI version."""
     click.echo(f"Frappe CLI version {__version__}")
 
-@cli.command()
 
+@cli.command()
 def status():
     """Show current Frappe environment status."""
     import os
+
     from rich.console import Console
     from rich.table import Table
 
     console = Console()
-    table = Table(title="Frappe Environment Status", show_header=True, header_style="bold cyan")
+    table = Table(
+        _title="Frappe Environment Status", show_header=True, _header_style="bold cyan"
+    )
     table.add_column("Component", style="cyan")
     table.add_column("Status", style="white")
     table.add_column("Details", style="green")
@@ -72,30 +79,36 @@ def status():
 
     # Check for common services
     import subprocess
-    services = ["mariadb", "redis-server", "nginx"]
-    for service in services:
+
+    service_names = ["mariadb", "redis-server", "nginx"]
+    for service_name in service_names:
         try:
-            result = subprocess.run(["systemctl", "is-active", service],
-                                  capture_output=True, text=True, check=True)
+            result = subprocess.run(
+                ["systemctl", "is-active", service_name],
+                _capture_output=True,
+                _text=True,
+                check=True,
+            )
             status = "✓ Running" if result.stdout.strip() == "active" else "⚠ Inactive"
-            table.add_row(service, status, result.stdout.strip())
+            table.add_row(service_name, status, result.stdout.strip())
         except subprocess.CalledProcessError:
-            table.add_row(service, "✗ Not found", "Not installed or not running")
+            table.add_row(service_name, "✗ Not found", "Not installed or not running")
 
     console.print(table)
 
+
 # Add command aliases for a more natural feel
 @cli.command(hidden=True)
-
 def info():
     """Alias for 'status' command."""
     return status()
 
-@cli.command(hidden=True)
 
+@cli.command(hidden=True)
 def check():
     """Alias for 'status' command."""
     return status()
+
 
 cli.add_command(install)
 cli.add_command(site)

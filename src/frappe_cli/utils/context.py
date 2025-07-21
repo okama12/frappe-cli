@@ -1,15 +1,16 @@
-from typing import Optional, Dict, Any, List, Union
-from dataclasses import dataclass, field
 import os
-import yaml
+from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any, Dict, Optional, Union
+
+import yaml
 from rich.console import Console
 
-from .shell import RichShellRunner
 from .logging import get_logger
+from .shell import RichShellRunner
+
 
 @dataclass
-
 class CliContext:
     """
     Context object for CLI commands, providing access to shared resources and configuration.
@@ -17,6 +18,7 @@ class CliContext:
     This class centralizes access to console, shell runner, configuration, and other
     shared resources needed by CLI commands.
     """
+
     # Command options
     dry_run: bool = False
     debug: bool = False
@@ -44,7 +46,7 @@ class CliContext:
                 console=self.console,
                 dry_run=self.dry_run,
                 debug=self.debug,
-                module_name=self.module_name
+                module_name=self.module_name,
             )
 
         return self._shell_runner
@@ -79,7 +81,7 @@ class CliContext:
         if not config_path.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-        with open(config_path, 'r') as f:
+        with open(config_path, "r") as f:
             self.config = yaml.safe_load(f) or {}
 
         return self.config
@@ -97,7 +99,7 @@ class CliContext:
         config_path = Path(config_path)
         os.makedirs(config_path.parent, exist_ok=True)
 
-        with open(config_path, 'w') as f:
+        with open(config_path, "w") as f:
             yaml.dump(self.config, f, default_flow_style=False)
 
 
@@ -105,7 +107,7 @@ def create_context(
     module_name: str,
     dry_run: bool = False,
     debug: bool = False,
-    ignore_errors: bool = False
+    ignore_errors: bool = False,
 ) -> CliContext:
     """
     Create a new CLI context with the specified options.
@@ -120,9 +122,8 @@ def create_context(
         A configured CliContext instance
     """
     return CliContext(
-
         dry_run=dry_run,
         debug=debug,
         ignore_errors=ignore_errors,
-        module_name=module_name
+        module_name=module_name,
     )

@@ -1,9 +1,8 @@
 import logging
-import os
-from typing import Optional
 
 LOG_FILE = "/var/log/frappe-installer.log"
 FALLBACK_LOG_FILE = "frappe-installer.log"
+
 
 def get_logger(module_name: str) -> logging.Logger:
     """
@@ -25,7 +24,7 @@ def get_logger(module_name: str) -> logging.Logger:
         except PermissionError:
             handler = logging.FileHandler(FALLBACK_LOG_FILE)
 
-        formatter = logging.Formatter('[%(asctime)s] %(message)s')
+        formatter = logging.Formatter("[%(asctime)s] %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
 

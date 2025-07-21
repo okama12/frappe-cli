@@ -1,11 +1,14 @@
-import click
-import os
-from ..utils import shell
 import logging
+import os
+
+import click
 from rich.console import Console
+
+from ..utils import shell
 
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
+
 
 def setup_logger():
     logger = logging.getLogger("frappe_installer.rollback.uninstall")
@@ -14,18 +17,25 @@ def setup_logger():
         handler = logging.FileHandler(LOG_FILE)
     except PermissionError:
         handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter('[%(asctime)s] %(message)s')
+    formatter = logging.Formatter("[%(asctime)s] %(message)s")
     handler.setFormatter(formatter)
     if not logger.handlers:
         logger.addHandler(handler)
     return logger
 
+
 logger = setup_logger()
 
-@click.command()
-@click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
-@click.option('--site-name', prompt='Enter site name', help='Frappe site name')
 
+@click.command()
+@click.option(
+    "--bench-name",
+    prompt="Enter bench name (folder)",
+    _default="frappe-bench",
+    _show_default=True,
+    help="Bench directory name",
+)
+@click.option("--site-name", prompt="Enter site name", help="Frappe site name")
 def uninstall(bench_name, site_name):
     """
     Remove the bench, site, and optionally logs.
@@ -33,8 +43,13 @@ def uninstall(bench_name, site_name):
     Example:
         frappe rollback uninstall --bench-name mybench --site-name example.com
     """
-    logger.info(f"[rollback] Uninstall initiated for bench: {bench_name}, site: {site_name}")
-    if not click.confirm(f"This will remove the bench '{bench_name}', site '{site_name}', and optionally logs. Continue?", abort=True):
+    logger.info(
+        f"[rollback] Uninstall initiated for bench: {bench_name}, site: {site_name}"
+    )
+    if not click.confirm(
+        f"This will remove the bench '{bench_name}', site '{site_name}', and optionally logs. Continue?",
+        _abort=True,
+    ):
         logger.info("[rollback] Uninstall cancelled by user.")
         return
 
@@ -49,9 +64,11 @@ def uninstall(bench_name, site_name):
                 logger.warning(f"[rollback] Backup failed: {e}")
         os.chdir("..")
         backup_file = f"{bench_name}_backup_$(date +%F).tar.gz"
-        shell.run(["tar", "czf", backup_file, bench_name, LOG_FILE], check=False)
+        shell.run(["tar", "czf", backup_file, bench_name, LOG_FILE], _check=False)
         logger.info(f"[rollback] Backup archive created: {backup_file}")
     # Remove bench and logs
     shell.run(["sudo", "rm", "-rf", bench_name, LOG_FILE])
-    logger.info(f"[rollback] Uninstall complete for bench: {bench_name}, site: {site_name}")
+    logger.info(
+        f"[rollback] Uninstall complete for bench: {bench_name}, site: {site_name}"
+    )
     console.print("[green]Uninstall complete.[/green]")

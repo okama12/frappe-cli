@@ -1,36 +1,42 @@
-import click
 import os
 from pathlib import Path
-from rich.prompt import Prompt
-import getpass
 
-from ..utils.context import create_context, CliContext
-from ..utils.shell import RichShellRunner
-from ..utils.logging import get_logger
-from ..utils.validators import validate_directory_exists, validate_not_empty
+import click
+
+from ..utils.context import create_context
 from ..utils.errors import ResourceNotFoundError, ValidationError
+from ..utils.validators import validate_directory_exists, validate_not_empty
+
 
 @click.command()
-@click.option('--bench-name', prompt='Enter bench name (folder)',
-              default='frappe-bench', show_default=True,
-              help='Bench directory name')
-@click.option('--site-name', prompt='Enter site name (FQDN recommended)',
-              default=lambda: os.uname()[1], show_default=True,
-              help='Site name (FQDN)')
-@click.option('--dry-run', is_flag=True,
-              help='Simulate commands without executing them')
-@click.option('--debug', is_flag=True,
-              help='Enable debug output with command details')
-@click.option('--ignore-errors', is_flag=True,
-              help='Continue despite errors')
+@click.option(
+    "--bench-name",
+    prompt="Enter bench name (folder)",
+    default="frappe-bench",
+    show_default=True,
+    help="Bench directory name",
+)
+@click.option(
+    "--site-name",
+    prompt="Enter site name (FQDN recommended)",
+    default=lambda: os.uname()[1],
+    show_default=True,
+    help="Site name (FQDN)",
+)
+@click.option(
+    "--dry-run", is_flag=True, help="Simulate commands without executing them"
+)
+@click.option("--debug", is_flag=True, help="Enable debug output with command details")
+@click.option("--ignore-errors", is_flag=True, help="Continue despite errors")
 @click.pass_context
-
-def create(ctx: click.Context,
-          bench_name: str,
-          site_name: str,
-          dry_run: bool,
-          debug: bool,
-          ignore_errors: bool) -> None:
+def create(
+    ctx: click.Context,
+    bench_name: str,
+    site_name: str,
+    dry_run: bool,
+    debug: bool,
+    ignore_errors: bool,
+) -> None:
     """
     Create a new Frappe site.
 
@@ -42,7 +48,7 @@ def create(ctx: click.Context,
         module_name="site.create",
         dry_run=dry_run,
         debug=debug,
-        ignore_errors=ignore_errors
+        ignore_errors=ignore_errors,
     )
 
     # Log the operation
@@ -61,8 +67,7 @@ def create(ctx: click.Context,
     # Validate bench directory exists
     try:
         validate_directory_exists(
-            bench_path,
-            f"Bench directory '{bench_path}' not found"
+            bench_path, f"Bench directory '{bench_path}' not found"
         )
 
     except (ResourceNotFoundError, ValidationError) as e:
@@ -88,7 +93,9 @@ def create(ctx: click.Context,
             context.logger.error(f"Site folder '{site_name}' exists but is incomplete")
             raise click.ClickException(error_msg)
 
-        context.console.print(f"[yellow]Site '{site_name}' already exists. Skipping creation.[/yellow]")
+        context.console.print(
+            f"[yellow]Site '{site_name}' already exists. Skipping creation.[/yellow]"
+        )
         context.logger.info(f"Site '{site_name}' already exists. Skipping.")
         return
 
@@ -96,7 +103,7 @@ def create(ctx: click.Context,
     context.shell.run(
         cmd=["bench", "new-site", site_name],
         description=f"Creating new site '{site_name}'",
-        ignore_errors=ignore_errors
+        ignore_errors=ignore_errors,
     )
 
     context.logger.info(f"Site created: {site_name}")
