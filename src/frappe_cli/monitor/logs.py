@@ -26,7 +26,7 @@ logger = setup_logger()
 
 @click.command()
 @click.option("--service", help="Service to tail logs for (e.g. nginx, supervisor)")
-@click.option("--tail", _default=100, help="Number of log lines to show")
+@click.option("--tail", default=100, help="Number of log lines to show")
 def logs(service, tail):
     """
     Show live logs for a service (stub).

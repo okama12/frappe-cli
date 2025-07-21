@@ -259,9 +259,9 @@ def validate_nginx_config():
 @click.command()
 @click.option(
     "--bench-name",
-    _prompt="Enter bench name (folder)",
+    prompt="Enter bench name (folder)",
     default="frappe-bench",
-    _show_default=True,
+    show_default=True,
     help="Bench directory name",
 )
 @click.option(
@@ -525,7 +525,7 @@ def prod(ctx, bench_name, dry_run, debug, ignore_errors):
                             if count > 0:
                                 # Write to a temp file first
                                 with tempfile.NamedTemporaryFile(
-                                    "w", _delete=False
+                                    "w", delete=False
                                 ) as tmpf:
                                     tmpf.write(new_conf)
                                     tmp_path = tmpf.name

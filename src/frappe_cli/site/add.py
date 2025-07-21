@@ -62,8 +62,8 @@ class RichShell:
 @click.option(
     "--bench-name",
     prompt="Enter bench name (folder)",
-    _default="frappe-bench",
-    _show_default=True,
+    default="frappe-bench",
+    show_default=True,
     help="Bench directory name",
 )
 @click.option(

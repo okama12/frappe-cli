@@ -31,8 +31,8 @@ logger = setup_logger()
 @click.option(
     "--bench-name",
     prompt="Enter bench name (folder)",
-    _default="frappe-bench",
-    _show_default=True,
+    default="frappe-bench",
+    show_default=True,
     help="Bench directory name",
 )
 @click.option("--site-name", prompt="Enter site name", help="Frappe site name")
@@ -48,7 +48,7 @@ def uninstall(bench_name, site_name):
     )
     if not click.confirm(
         f"This will remove the bench '{bench_name}', site '{site_name}', and optionally logs. Continue?",
-        _abort=True,
+        abort=True,
     ):
         logger.info("[rollback] Uninstall cancelled by user.")
         return
@@ -64,7 +64,7 @@ def uninstall(bench_name, site_name):
                 logger.warning(f"[rollback] Backup failed: {e}")
         os.chdir("..")
         backup_file = f"{bench_name}_backup_$(date +%F).tar.gz"
-        shell.run(["tar", "czf", backup_file, bench_name, LOG_FILE], _check=False)
+        shell.run(["tar", "czf", backup_file, bench_name, LOG_FILE], check=False)
         logger.info(f"[rollback] Backup archive created: {backup_file}")
     # Remove bench and logs
     shell.run(["sudo", "rm", "-rf", bench_name, LOG_FILE])

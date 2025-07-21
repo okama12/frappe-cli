@@ -48,7 +48,7 @@ logger = setup_logger()
     "--bench-name",
     prompt="Enter bench name (folder)",
     default="frappe-bench",
-    _show_default=True,
+    show_default=True,
     help="Bench directory name",
 )
 @click.option("--site-name", prompt="Enter site name", help="Frappe site name")
@@ -71,7 +71,7 @@ def setup(admin_email, bench_name, site_name):
             f"echo 'This is a test email from the Frappe Installer backup system.' | mail -s '[TEST] Frappe Backup Email Test' '{admin_email}'",
         ]
     )
-    if not click.confirm("Did you receive the test email?", _abort=True):
+    if not click.confirm("Did you receive the test email?", abort=True):
         print_warning("Test email not received. Please check your email settings.")
         return
 
