@@ -1,6 +1,6 @@
 pytest
 pytest-cov
-click
+click>=8.0.0
 black
 ruff
 isort
