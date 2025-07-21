@@ -33,6 +33,7 @@ class RichShell:
             self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
             logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return 0
+
         self.console.print(f"[blue]{description}...[/blue]")
         try:
             result = os.system(' '.join(cmd))
@@ -41,6 +42,7 @@ class RichShell:
             logger.info(f"[site] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
+
         except Exception as e:
             logger.error(f"[site] Failed: {' '.join(cmd)} - {e}")
             self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
@@ -57,6 +59,7 @@ class RichShell:
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
+
 def add(bench_name, site_name, app_name, dry_run, debug, ignore_errors):
     """Install a Frappe app on a site."""
     logger.info(f"[site] Installing app: {app_name} on site: {site_name} in bench: {bench_name}")

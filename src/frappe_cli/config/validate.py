@@ -21,7 +21,8 @@ def setup_logger():
 logger = setup_logger()
 
 @click.command()
+
 def validate():
     """Validate the config file (stub)."""
     logger.info(f"[config] Validate called.")
-    console.print(f"[yellow][STUB] Would validate config file. Not yet implemented.[/yellow]") 
+    console.print(f"[yellow][STUB] Would validate config file. Not yet implemented.[/yellow]")

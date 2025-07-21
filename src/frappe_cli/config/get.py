@@ -22,6 +22,7 @@ logger = setup_logger()
 
 @click.command()
 @click.argument('key')
+
 def get(key):
     """
     Get a config value (stub).
@@ -30,4 +31,4 @@ def get(key):
         frappe config get <key>
     """
     logger.info(f"[config] Get called for key: {key}")
-    console.print(f"[yellow][STUB] Would get config key '{key}'. Not yet implemented.[/yellow]") 
+    console.print(f"[yellow][STUB] Would get config key '{key}'. Not yet implemented.[/yellow]")

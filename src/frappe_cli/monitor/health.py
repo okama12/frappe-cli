@@ -21,7 +21,8 @@ def setup_logger():
 logger = setup_logger()
 
 @click.command()
+
 def health():
     """Show system health (stub)."""
     logger.info(f"[monitor] Health called.")
-    console.print(f"[yellow][STUB] Would show system health. Not yet implemented.[/yellow]") 
+    console.print(f"[yellow][STUB] Would show system health. Not yet implemented.[/yellow]")

@@ -21,6 +21,7 @@ logger = setup_logger()
 
 @click.command()
 @click.pass_context
+
 def user(ctx):
     """Create or ensure a dedicated 'frappe' user exists."""
     config = ctx.obj.get('CONFIG', {})
@@ -36,4 +37,4 @@ def user(ctx):
         shell.run(["sudo", "useradd", "-m", "-s", "/bin/bash", username])
         shell.run(["sudo", "usermod", "-aG", "sudo", username])
         click.secho(f"User '{username}' created and added to sudo group.", fg="green")
-        logger.info(f"[user] User '{username}' created and added to sudo group.") 
+        logger.info(f"[user] User '{username}' created and added to sudo group.")

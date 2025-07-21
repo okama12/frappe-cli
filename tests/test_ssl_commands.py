@@ -1,3 +1,4 @@
+
 from click.testing import CliRunner
 import frappe_cli.cli as cli
 
@@ -6,7 +7,7 @@ def test_ssl_help():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ['ssl', '--help'])
     assert result.exit_code == 0
-    assert ('SSL/HTTPS management commands' in result.output or 
+    assert ('SSL/HTTPS management commands' in result.output or
             'SSL' in result.output)
 
 
@@ -14,5 +15,5 @@ def test_ssl_setup_help():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ['ssl', 'setup', '--help'])
     assert result.exit_code == 0
-    assert ('Setup SSL/HTTPS' in result.output or 
+    assert ('Setup SSL/HTTPS' in result.output or
             'Setup SSL' in result.output)

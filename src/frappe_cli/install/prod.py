@@ -76,6 +76,7 @@ class RichShell:
             if self.debug and result.stderr:
                 self.console.print(f"[dim]STDERR:\n{result.stderr}[/dim]")
             return result.returncode
+
         except subprocess.CalledProcessError as e:
             logger.error(f"[prod] Failed: {cmd_str} - {e}")
             self.console.print(f"[bold red]✗ {description} failed:[/bold red]")
@@ -86,6 +87,7 @@ class RichShell:
             else:
                 self.console.print(f"[yellow]Continuing despite error...[/yellow]")
             return e.returncode
+
         except Exception as e:
             logger.error(f"[prod] Failed: {cmd_str} - {e}")
             self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
@@ -162,6 +164,7 @@ def clean_nginx_upstreams(conf_path):
             console.print(f"[green]✓ Cleaned duplicate upstream blocks in {conf_path}[/green]")
             logger.info(f"[prod] Cleaned duplicate upstream blocks in {conf_path}")
             return True
+
         else:
             console.print(f"[green]✓ No duplicate upstream blocks found in {conf_path}[/green]")
             return False
@@ -211,14 +214,17 @@ def validate_nginx_config():
         if result.returncode == 0:
             console.print("[green]✓ Nginx configuration is valid[/green]")
             return True
+
         else:
             console.print(f"[bold red]✗ Nginx configuration test failed:[/bold red]")
             console.print(f"[red]{result.stdout}[/red]") # Nginx -t often puts errors on stdout
             console.print(f"[red]{result.stderr}[/red]")
             return False
+
     except FileNotFoundError:
         console.print("[bold red]✗ Nginx command not found. Please ensure Nginx is installed.[/bold red]")
         return False
+
     except Exception as e:
         console.print(f"[bold red]✗ Failed to test nginx config: {e}[/bold red]")
         return False
@@ -229,6 +235,7 @@ def validate_nginx_config():
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
 @click.pass_context
+
 def prod(ctx, bench_name, dry_run, debug, ignore_errors):
     """Setup production environment for Frappe."""
     logger.info(f"[prod] Setting up production environment for bench: {bench_name}")
@@ -374,6 +381,7 @@ def prod(ctx, bench_name, dry_run, debug, ignore_errors):
             try:
                 with urllib.request.urlopen('https://api.ipify.org') as response:
                     return response.read().decode('utf-8').strip()
+
             except Exception:
                 return None
 

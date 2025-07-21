@@ -38,6 +38,7 @@ class RichShell:
             self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
             logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return 0
+
         self.console.print(f"[blue]{description}...[/blue]")
         try:
             # Use shell.run for safety, but keep output/flow the same
@@ -45,6 +46,7 @@ class RichShell:
             logger.info(f"[clone] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return 0
+
         except Exception as e:
             logger.error(f"[clone] Failed: {' '.join(cmd)} - {e}")
             self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
@@ -76,6 +78,7 @@ def fix_ownership(path):
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
+
 def clone(bench_name, repo_url, branch, dry_run, debug, ignore_errors):
     """
     Clone and validate a Frappe-compatible app from GitHub.
@@ -148,11 +151,13 @@ def clone(bench_name, repo_url, branch, dry_run, debug, ignore_errors):
         console.print(f"[bold red]App directory with name(s) {existing_dirs} already exists in '{apps_dir}'. Aborting to avoid duplicate or conflicting clones.[/bold red]")
         logger.error(f"[app] App directory with name(s) {existing_dirs} already exists in '{apps_dir}'.")
         return
+
     # Check for existing non-empty app directory
     if os.path.isdir(app_path) and os.listdir(app_path):
         console.print(f"[bold red]App directory '{app_path}' already exists and is not empty. Aborting to avoid overwrite.[/bold red]")
         logger.error(f"[app] App directory '{app_path}' already exists and is not empty.")
         return
+
     # Run bench get-app and clean up if it fails
     clone_result = shell_runner.run(["bench", "get-app", "--branch", branch, repo_url], f"Cloning app from {repo_url}", ignore_errors=ignore_errors)
     # If cloning failed, remove the app directory if it was created
@@ -166,6 +171,7 @@ def clone(bench_name, repo_url, branch, dry_run, debug, ignore_errors):
             console.print(f"[red]Failed to remove incomplete app directory '{app_path}': {e}[/red]")
             logger.error(f"[app] Failed to remove incomplete app directory '{app_path}': {e}")
         return
+
     # Fix ownership of the app directory to the current user
     if os.path.isdir(app_path):
         fix_ownership(app_path)

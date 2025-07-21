@@ -5,9 +5,10 @@ from .logs import logs
 from .health import health
 
 @click.group()
+
 def monitor():
     """Monitoring commands (logs, health, etc)."""
     pass
 
 monitor.add_command(logs)
-monitor.add_command(health) 
+monitor.add_command(health)

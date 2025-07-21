@@ -4,8 +4,9 @@ import click
 from .performance import performance
 
 @click.group()
+
 def optimize():
     """Performance tuning commands (stub)."""
     pass
 
-optimize.add_command(performance) 
+optimize.add_command(performance)

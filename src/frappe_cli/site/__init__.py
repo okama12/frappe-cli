@@ -1,4 +1,4 @@
-# This file marks the site directory as a Python package. 
+# This file marks the site directory as a Python package.
 
 import click
 from .backup import backup
@@ -9,6 +9,7 @@ from .add import add
 from .delete import delete
 
 @click.group()
+
 def site():
     """Site management commands."""
     pass

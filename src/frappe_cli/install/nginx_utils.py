@@ -76,11 +76,13 @@ def validate_nginx_config() -> bool:
         if result.returncode == 0:
             console.print("[green]✓ Nginx configuration is valid[/green]")
             return True
+
         else:
             console.print(f"[bold red]✗ Nginx configuration test failed:[/bold red]")
             console.print(f"[red]{result.stdout}[/red]")
             console.print(f"[red]{result.stderr}[/red]")
             return False
+
     except Exception as e:
         console.print(f"[bold red]✗ Failed to test nginx config: {e}[/bold red]")
         return False

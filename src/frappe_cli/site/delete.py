@@ -36,6 +36,7 @@ class RichShell:
             self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
             logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return 0
+
         self.console.print(f"[blue]{description}...[/blue]")
         try:
             result = os.system(' '.join(cmd))
@@ -44,6 +45,7 @@ class RichShell:
             logger.info(f"[site] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
+
         except Exception as e:
             logger.error(f"[site] Failed: {' '.join(cmd)} - {e}")
             self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
@@ -59,6 +61,7 @@ class RichShell:
 @click.option('--dry-run', is_flag=True, help='Simulate commands without executing them')
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.pass_context
+
 def delete(ctx, bench_name, site_name, dry_run, debug):
     """
     Delete a Frappe site (drops database and removes site folder).
@@ -82,6 +85,7 @@ def delete(ctx, bench_name, site_name, dry_run, debug):
         console.print(f"[yellow]Site '{site_name}' does not exist. Skipping deletion.[/yellow]")
         logger.info(f"[site] Site '{site_name}' does not exist. Skipping.")
         return
+
     shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
     shell_runner.run([
         "bench", "drop-site", site_name, "--no-backup"
@@ -100,4 +104,4 @@ def delete(ctx, bench_name, site_name, dry_run, debug):
                 console.print(f"[red]Failed to remove site folder '{site_path}': {e}[/red]")
                 logger.error(f"[site] Failed to remove site folder '{site_path}': {e}")
     logger.info(f"[site] Site deleted: {site_name}")
-    console.print(f"[bold green]✓ Site deleted: {site_name}[/bold green]") 
+    console.print(f"[bold green]✓ Site deleted: {site_name}[/bold green]")

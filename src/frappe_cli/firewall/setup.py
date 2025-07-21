@@ -22,6 +22,7 @@ def setup_logger():
 logger = setup_logger()
 
 @click.command()
+
 def setup():
     """
     Configure UFW firewall for production best practices.
@@ -51,4 +52,4 @@ def setup():
     shell.run(["sudo", "ufw", "--force", "enable"])
     status = shell.run(["sudo", "ufw", "status", "verbose"]) or ""
     console.print(f"[blue]UFW is now enabled and configured.[/blue]\n\n{status}")
-    logger.info(f"[firewall] UFW firewall configured.\n{status}") 
+    logger.info(f"[firewall] UFW firewall configured.\n{status}")

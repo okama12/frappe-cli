@@ -43,6 +43,7 @@ class RichShell:
             self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
             logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return
+
         self.console.print(f"[blue]{description}...[/blue]")
         try:
             result = os.system(' '.join(cmd))
@@ -51,6 +52,7 @@ class RichShell:
             logger.info(f"[init] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
+
         except Exception as e:
             logger.error(f"[init] Failed: {' '.join(cmd)}")
             self.console.print(f"[bold red]✗ {description} failed.[/bold red]")
@@ -64,6 +66,7 @@ class RichShell:
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
 @click.pass_context
+
 def init(ctx, dry_run, debug, ignore_errors):
     """Create new Frappe Bench instance."""
     validate_sudo()
@@ -82,6 +85,7 @@ def init(ctx, dry_run, debug, ignore_errors):
         console.print(f"[yellow]Bench directory '{bench_path}' already exists. Skipping initialization.[/yellow]")
         logger.info(f"[init] Bench directory '{bench_path}' already exists. Skipping.")
         return
+
     console.print(f"[cyan]Initializing bench: {bench_path} (branch: {frappe_branch})[/cyan]")
     shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
     shell_runner.run(["bench", "init", "--frappe-branch", frappe_branch, bench_path], "Initializing Frappe Bench", ignore_errors=ignore_errors)

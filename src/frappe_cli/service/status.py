@@ -11,6 +11,7 @@ LOG_FILE = "/var/log/frappe-installer.log"
 SERVICES = ["mariadb", "redis-server", "nginx", "supervisor"]
 
 # Logger setup (as in deps.py)
+
 def setup_logger():
     logger = logging.getLogger("frappe_installer.service.status")
     logger.setLevel(logging.INFO)
@@ -28,6 +29,7 @@ logger = setup_logger()
 console = Console()
 
 # Helper to run shell commands and handle errors
+
 class ShellRunner:
     def __init__(self, console, logger):
         self.console = console
@@ -45,7 +47,9 @@ class ShellRunner:
                 if description:
                     self.console.print(f"[yellow]Warning: {description} returned no output[/yellow]")
                 return ''
+
             return result
+
         except Exception as e:
             msg = f"[red]Error running {' '.join(cmd)}: {str(e)}[/red]"
             self.console.print(msg)
@@ -59,6 +63,7 @@ shell_runner = ShellRunner(console, logger)
 @click.command()
 @click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
 @click.option('--site-name', prompt='Enter site name', default='', show_default=False, help='Frappe site name (optional)')
+
 def status(bench_name, site_name):
     """Show system, service, and Frappe/Bench status with rich output."""
     logger.info("[service] Checking system status...")
@@ -137,6 +142,7 @@ def status(bench_name, site_name):
                             console.print(f"  - {app}")
                 except Exception:
                     pass
+
             elif site_name:
                 console.print(f"[red]Site: {site_name} not found[/red]")
         else:
@@ -157,4 +163,4 @@ def status(bench_name, site_name):
             console.print(f"[yellow]Could not determine SSL certificate expiry for {site_name}[/yellow]")
     else:
         console.print(f"[red]SSL certificate not found for {site_name}[/red]")
-    logger.info("[service] Status check completed.") 
+    logger.info("[service] Status check completed.")

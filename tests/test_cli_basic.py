@@ -1,6 +1,7 @@
-import pytest
+
 from click.testing import CliRunner
 import frappe_cli.cli as cli
+
 
 def test_frappe_help():
     runner = CliRunner()
@@ -9,11 +10,13 @@ def test_frappe_help():
     assert 'Frappe Installer CLI' in result.output
     assert 'Commands:' in result.output
 
+
 def test_site_help():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ['site', '--help'])
     assert result.exit_code == 0
     assert 'Site management commands' in result.output
+
 
 def test_missing_command():
     runner = CliRunner()

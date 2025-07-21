@@ -44,6 +44,7 @@ class RichShell:
             self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
             logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return 0
+
         self.console.print(f"[blue]{description}...[/blue]")
         try:
             if input_text:
@@ -53,6 +54,7 @@ class RichShell:
             logger.info(f"[mariadb] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result.returncode
+
         except Exception as e:
             logger.error(f"[mariadb] Failed: {' '.join(cmd)} - {e}")
             self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
@@ -70,16 +72,20 @@ def detect_mariadb_version():
         distrib_match = re.search(r"Distrib ([0-9.]+)-MariaDB", out)
         if distrib_match:
             return ("mariadb", distrib_match.group(1))
+
         distrib_mysql = re.search(r"Distrib ([0-9.]+)", out)
         if distrib_mysql:
             return ("mysql", distrib_mysql.group(1))
+
         # Fallback to old logic
         if "MariaDB" in out:
             version = out.split("MariaDB")[-1].split()[0]
             return ("mariadb", version)
+
         elif "Ver" in out:
             version = out.split("Ver")[-1].split()[0]
             return ("mysql", version)
+
     except Exception:
         return (None, None)
 
@@ -89,6 +95,7 @@ def is_root_using_socket():
             "sudo", "mysql", "-NBe", "SELECT plugin FROM mysql.user WHERE user='root';"
         ]).decode().strip()
         return "unix_socket" in out
+
     except Exception:
         return False
 
@@ -100,34 +107,41 @@ def is_already_secured():
         ]).decode().strip()
         if anon_users != "0":
             return False
+
         # 2. No users with empty passwords
         empty_pw = subprocess.check_output([
             "sudo", "mysql", "-NBe", "SELECT COUNT(*) FROM mysql.user WHERE authentication_string='' OR authentication_string IS NULL;"
         ]).decode().strip()
         if empty_pw != "0":
             return False
+
         # 3. No test database
         test_db = subprocess.check_output([
             "sudo", "mysql", "-NBe", "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name='test';"
         ]).decode().strip()
         if test_db != "0":
             return False
+
         # 4. root only allowed on localhost
         root_hosts = subprocess.check_output([
             "sudo", "mysql", "-NBe", "SELECT GROUP_CONCAT(DISTINCT host) FROM mysql.user WHERE user='root';"
         ]).decode().strip()
         if root_hosts not in ("localhost", "127.0.0.1", "localhost,127.0.0.1"):
             return False
+
         # 5. root has a password and uses mysql_native_password
         root_auth = subprocess.check_output([
             "sudo", "mysql", "-NBe", "SELECT plugin,authentication_string FROM mysql.user WHERE user='root' AND host='localhost';"
         ]).decode().strip()
         if not root_auth:
             return False
+
         plugin, auth_string = root_auth.split("\t") if "\t" in root_auth else (root_auth, "")
         if plugin != "mysql_native_password" or not auth_string:
             return False
+
         return True
+
     except Exception as e:
         logger.error(f"[mariadb] Secure state check failed: {e}")
         return False
@@ -142,8 +156,10 @@ def get_mariadb_service_name():
                 capture_output=True,
                 text=True
             )
+
             if result.returncode == 0:
                 return service
+
         except Exception:
             continue
     return "mariadb"  # fallback
@@ -159,6 +175,7 @@ def get_config_path():
         config_dir = os.path.dirname(path)
         if os.path.exists(config_dir):
             return path
+
     return "/etc/mysql/mariadb.conf.d/50-frappe.cnf"
 
 def get_optimal_innodb_buffer_pool_size():
@@ -170,15 +187,19 @@ def get_optimal_innodb_buffer_pool_size():
         mem_total_gb = mem_total_kb / 1024 / 1024
         if mem_total_gb >= 8:
             return f"{int(mem_total_gb * 0.6)}G"
+
         elif mem_total_gb >= 4:
             return f"{int(mem_total_gb * 0.5)}G"
+
         else:
             return "256M"
+
     except Exception:
         return "256M"
 
 def get_mariadb_config(buffer_pool_size="256M"):
     return f'''[mysqld]
+
 # Frappe Framework Configuration
 innodb_file_per_table=1
 character-set-client-handshake=FALSE
@@ -220,6 +241,7 @@ def write_mariadb_config(dry_run, debug):
     if dry_run:
         console.print(f"[yellow][dry-run] Would write MariaDB config to {config_path}[/yellow]")
         return
+
     with open("/tmp/50-frappe.cnf", "w") as f:
         f.write(cnf_content)
     subprocess.run(["sudo", "mv", "/tmp/50-frappe.cnf", config_path], check=True)
@@ -238,9 +260,11 @@ def validate_mariadb_version(db_type, db_version):
         if current_version < min_version:
             console.print(f"[bold red]ERROR: {db_type} {db_version} is not supported. Minimum version: {'.'.join(map(str, min_version))}[/bold red]")
             return False
+
         elif current_version < recommended_version:
             console.print(f"[bold yellow]WARNING: {db_type} {db_version} is below recommended version {'.'.join(map(str, recommended_version))}[/bold yellow]")
         return True
+
     except Exception:
         console.print(f"[bold red]ERROR: Could not parse version {db_version}[/bold red]")
         return False
@@ -250,6 +274,7 @@ def validate_mariadb_version(db_type, db_version):
 @click.option('--debug', is_flag=True, help='Enable debug output with command details')
 @click.option('--ignore-errors', is_flag=True, help='Continue even if some commands fail')
 @click.pass_context
+
 def mariadb(ctx, dry_run, debug, ignore_errors):
     """Secure and configure MariaDB for Frappe."""
     validate_sudo()

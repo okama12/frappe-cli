@@ -4,6 +4,7 @@ __all__ = ["maintenance"]
 
 import click
 @click.group()
+
 def maintenance():
     """Maintenance commands (logrotate, etc)."""
     pass

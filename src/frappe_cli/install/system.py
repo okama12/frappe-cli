@@ -72,12 +72,14 @@ class RichShell:
             self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
             logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
             return
+
         self.console.print(f"[blue]{description}...[/blue]")
         try:
             result = subprocess.run(cmd, check=True)
             logger.info(f"[system] Success: {description}")
             self.console.print(f"[green]✓ {description} - Complete[/green]")
             return result
+
         except subprocess.CalledProcessError as e:
             logger.error(f"[system] Failed: {' '.join(cmd)}")
             self.console.print(f"[bold red]✗ {description} failed.[/bold red]")
@@ -90,10 +92,13 @@ class RichShell:
 def detect_package_manager():
     if subprocess.call(["which", "apt"], stdout=subprocess.DEVNULL) == 0:
         return "apt"
+
     elif subprocess.call(["which", "dnf"], stdout=subprocess.DEVNULL) == 0:
         return "dnf"
+
     elif subprocess.call(["which", "yum"], stdout=subprocess.DEVNULL) == 0:
         return "yum"
+
     else:
         console.print("[bold red]Unsupported package manager. Supported: apt, dnf, yum")
         sys.exit(1)
@@ -103,6 +108,7 @@ def detect_package_manager():
 @click.option('--debug', is_flag=True, help="Enable debug output with command details")
 @click.option('--ignore-errors', is_flag=True, help="Continue even if some commands fail")
 @click.pass_context
+
 def system(ctx, dry_run, debug, ignore_errors):
     """Update system, install essential packages."""
     _ = ctx.obj.get("CONFIG", {})

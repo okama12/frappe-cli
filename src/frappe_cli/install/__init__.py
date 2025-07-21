@@ -1,4 +1,4 @@
-# This file marks the install directory as a Python package. 
+# This file marks the install directory as a Python package.
 
 import click
 from .bench import bench
@@ -12,6 +12,7 @@ from .system import system
 from .user import user
 
 @click.group()
+
 def install():
     """Install and setup commands for Frappe"""
     pass
@@ -24,4 +25,4 @@ install.add_command(mariadb)
 install.add_command(prod)
 install.add_command(ssh_hardening)
 install.add_command(system)
-install.add_command(user) 
+install.add_command(user)

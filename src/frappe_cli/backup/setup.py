@@ -6,6 +6,7 @@ from rich.console import Console
 from ..utils.errors import FrappeCliError
 
 # Helper functions for consistent output
+
 def print_success(message):
     Console().print(f"[bold green]✓ {message}[/bold green]")
 
@@ -34,6 +35,7 @@ logger = setup_logger()
 @click.option('--admin-email', prompt='Enter admin email for backup alerts', help='Admin email for backup alerts')
 @click.option('--bench-name', prompt='Enter bench name (folder)', default='frappe-bench', show_default=True, help='Bench directory name')
 @click.option('--site-name', prompt='Enter site name', help='Frappe site name')
+
 def setup(admin_email, bench_name, site_name):
     """
     Set up robust backups with external HD and cron job.
@@ -48,6 +50,7 @@ def setup(admin_email, bench_name, site_name):
     if not click.confirm("Did you receive the test email?", abort=True):
         print_warning("Test email not received. Please check your email settings.")
         return
+
     # Detect external HD by UUID
     console.print("[blue]Detecting available external drives...[/blue]")
     lsblk_out = shell.run(["lsblk", "-o", "NAME,UUID,MOUNTPOINT"]) or ""
@@ -60,6 +63,7 @@ def setup(admin_email, bench_name, site_name):
         print_warning("No unmounted external drives detected. Please insert the backup drive and rerun.")
         logger.error("[backup] No unmounted external drives detected.")
         return
+
     console.print("[blue]Available drives:[/blue]")
     for i, (name, uuid) in enumerate(devices):
         console.print(f"{i+1}: {name} ({uuid})")
@@ -118,4 +122,4 @@ ls -1t "$BACKUP_DEST"/backup-*.zip | tail -n +8 | xargs -r rm --
     if cron_line not in crontab:
         shell.run(["bash", "-c", f"(sudo crontab -l 2>/dev/null | grep -v '{backup_script}'; echo '{cron_line}') | sudo crontab -"])
     logger.info(f"[backup] Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.")
-    print_success(f"Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.") 
+    print_success(f"Backup cron job set up. Backups will be stored at {backup_dest} and alerts sent to {admin_email}.")

@@ -21,6 +21,7 @@ logger = setup_logger()
 
 @click.command()
 @click.pass_context
+
 def fail2ban(ctx):
     """Install and enable Fail2Ban for SSH protection."""
     logger.info("[fail2ban] Installing and enabling Fail2Ban...")
@@ -28,4 +29,4 @@ def fail2ban(ctx):
     shell.run(["sudo", "systemctl", "enable", "fail2ban"])
     shell.run(["sudo", "systemctl", "start", "fail2ban"])
     click.secho("Fail2Ban installed and enabled.", fg="green")
-    logger.info("[fail2ban] Fail2Ban installed and enabled.") 
+    logger.info("[fail2ban] Fail2Ban installed and enabled.")

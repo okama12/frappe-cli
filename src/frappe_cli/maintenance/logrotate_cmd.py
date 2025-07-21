@@ -24,6 +24,7 @@ def setup_logger():
 logger = setup_logger()
 
 @click.command()
+
 def logrotate_maintenance():
     """
     Set up logrotate for /var/log/frappe-installer.log.

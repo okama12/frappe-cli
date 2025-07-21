@@ -23,6 +23,7 @@ logger = setup_logger()
 @click.command()
 @click.argument('key')
 @click.argument('value')
+
 def set(key, value):
     """
     Set a config value (stub).
@@ -31,4 +32,4 @@ def set(key, value):
         frappe config set <key> <value>
     """
     logger.info(f"[config] Set called for key: {key} value: {value}")
-    console.print(f"[yellow][STUB] Would set config key '{key}' to '{value}'. Not yet implemented.[/yellow]") 
+    console.print(f"[yellow][STUB] Would set config key '{key}' to '{value}'. Not yet implemented.[/yellow]")
