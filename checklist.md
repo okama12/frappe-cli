@@ -18,7 +18,7 @@
 - [x] Add logging (with log level control) for debugging and auditing
 
 ## 4. Extensibility & Developer Experience
-- [ ] Document how to add new commands or extend the CLI (in README or a `CONTRIBUTING.md`)
+- [x ] Document how to add new commands or extend the CLI (in README or a `CONTRIBUTING.md`)
 - [ ] Keep commands modular (one file/module per command or logical group)
 - [ ] Consider a plugin system for third-party extensions (optional, advanced)
 
