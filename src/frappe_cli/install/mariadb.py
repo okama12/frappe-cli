@@ -159,7 +159,7 @@ def is_already_secured():
                     "sudo",
                     "mysql",
                     "-NBe",
-                    "SELECT COUNT(*) FROM information_schema.schemata WHERE _schema_name ='test';",
+                    "SELECT COUNT(*) FROM information_schema.schemata WHERE schema_name ='test';",
                 ]
             )
             .decode()
@@ -220,8 +220,8 @@ def get_mariadb_service_name():
         try:
             result = subprocess.run(
                 ["sudo", "systemctl", "is-active", service],
-                _capture_output=True,
-                _text=True,
+                capture_output=True,
+                text=True,
             )
 
             if result.returncode == 0:
@@ -274,33 +274,33 @@ def get_mariadb_config(buffer_pool_size="256M"):
 
 # Frappe Framework Configuration
 innodb_file_per_table=1
-character-set-client-_handshake =FALSE
+character-set-client-handshake=FALSE
 character-set-server=utf8mb4
 collation-server=utf8mb4_unicode_ci
 
 # Connection settings
-_max_connections =1000
-_connect_timeout =600
-_wait_timeout =600
-_max_allowed_packet =128M
+max_connections=1000
+connect_timeout=600
+wait_timeout=600
+max_allowed_packet=128M
 
 # InnoDB settings
-_innodb_buffer_pool_size ={buffer_pool_size}
-_innodb_log_file_size =128M
-_innodb_flush_log_at_trx_commit =2
+innodb_buffer_pool_size={buffer_pool_size}
+innodb_log_file_size=128M
+innodb_flush_log_at_trx_commit=2
 innodb_file_per_table=1
-_innodb_buffer_pool_instances =1
+innodb_buffer_pool_instances=1
 
 # Performance
 skip-name-resolve
-_query_cache_type =0
-_query_cache_size =0
+query_cache_type=0
+query_cache_size=0
 
 # Binary logging (optional, for replication)
-_log_bin =mysql-bin
-_binlog_format =ROW
-_expire_logs_days =10
-_max_binlog_size =100M
+log_bin=mysql-bin
+binlog_format=ROW
+expire_logs_days=10
+max_binlog_size=100M
 
 [mysql]
 default-character-set=utf8mb4
@@ -335,17 +335,13 @@ def validate_mariadb_version(db_type, db_version):
         current_version = tuple(map(int, db_version.split(".")[:2]))
         if current_version < min_version:
             console.print(
-                f"[bold red]ERROR: {db_type} {db_version} is not supported. Minimum version: {'.'.join(
-                                                                                                       map(str,
-                                                                                                       min_version))}[/bold red]"
+                f"[bold red]ERROR: {db_type} {db_version} is not supported. Minimum version: {'.'.join(map(str, min_version))}[/bold red]"
             )
             return False
 
         elif current_version < recommended_version:
             console.print(
-                f"[bold yellow]WARNING: {db_type} {db_version} is below recommended version {'.'.join(
-                                                                                                      map(str,
-                                                                                                      recommended_version))}[/bold yellow]"
+                f"[bold yellow]WARNING: {db_type} {db_version} is below recommended version {'.'.join(map(str, recommended_version))}[/bold yellow]"
             )
         return True
 
