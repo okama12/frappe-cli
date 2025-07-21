@@ -24,12 +24,6 @@ def cli(ctx, config):
     This CLI provides a professional interface for managing Frappe applications,
     similar to Flask CLI or Poetry. It automatically detects your Frappe environment
     and provides contextual commands.
-    
-    Examples:
-        frappe status                    # Show current environment status
-        frappe site create example.com   # Create a new site
-        frappe service restart           # Restart all services
-        frappe --help                    # Show all available commands
     """
     ctx.ensure_object(dict)
     # Config loading is currently not used
@@ -113,4 +107,4 @@ cli.add_command(monitor)
 cli.add_command(optimize)
 
 if __name__ == "__main__":
-    cli(obj={}) 
+    cli(obj={})

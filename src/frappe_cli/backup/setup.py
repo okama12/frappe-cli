@@ -3,7 +3,14 @@ import os
 from ..utils import shell
 import logging
 from rich.console import Console
-from ..utils.errors import FrappeCLIError, print_success, print_warning
+from ..utils.errors import FrappeCliError
+
+# Helper functions for consistent output
+def print_success(message):
+    Console().print(f"[bold green]✓ {message}[/bold green]")
+
+def print_warning(message):
+    Console().print(f"[bold yellow]⚠ {message}[/bold yellow]")
 
 LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()

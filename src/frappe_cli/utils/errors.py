@@ -1,132 +1,131 @@
+from typing import Optional, Dict, Any, List, Union, Type
 import click
-import subprocess
-from rich.console import Console
-from rich.panel import Panel
-from rich.text import Text
-from typing import Optional, List
 
-console = Console()
-
-class FrappeCLIError(click.ClickException):
-    """Base exception for Frappe CLI with rich formatting."""
+class FrappeCliError(Exception):
+    """
+    Base exception class for all Frappe CLI errors.
     
-    def __init__(self, message: str, hint: Optional[str] = None, 
-                 solution: Optional[str] = None, code: Optional[int] = None):
+    This provides a consistent interface for error handling throughout the application.
+    """
+    exit_code: int = 1
+    
+    def __init__(self, message: str, details: Optional[str] = None):
+        """
+        Initialize a new FrappeCliError.
+        
+        Args:
+            message: The main error message
+            details: Optional detailed explanation or context
+        """
         self.message = message
-        self.hint = hint
-        self.solution = solution
-        self.code = code
+        self.details = details
         super().__init__(message)
     
-    def show(self, file=None):
-        """Show the error with rich formatting."""
-        # Create the error message
-        error_text = Text()
-        error_text.append("Error: ", style="bold red")
-        error_text.append(self.message, style="red")
+    def format_for_console(self) -> str:
+        """
+        Format the error message for console output.
         
-        # Add hint if provided
-        if self.hint:
-            error_text.append("\n\nHint: ", style="bold yellow")
-            error_text.append(self.hint, style="yellow")
+        Returns:
+            A formatted error message string
+        """
+        if self.details:
+            return f"{self.message}\n\nDetails: {self.details}"
+        return self.message
+    
+    def to_click_exception(self) -> click.ClickException:
+        """
+        Convert to a Click exception for CLI error handling.
         
-        # Add solution if provided
-        if self.solution:
-            error_text.append("\n\nSolution: ", style="bold green")
-            error_text.append(self.solution, style="green")
+        Returns:
+            A Click exception with the same message
+        """
+        return click.ClickException(self.format_for_console())
+
+
+class ConfigurationError(FrappeCliError):
+    """
+    Error raised when there's an issue with configuration.
+    """
+    exit_code = 2
+
+
+class ValidationError(FrappeCliError):
+    """
+    Error raised when validation fails.
+    """
+    exit_code = 3
+
+
+class CommandError(FrappeCliError):
+    """
+    Error raised when a command fails.
+    """
+    exit_code = 4
+    
+    def __init__(self, message: str, command: Optional[List[str]] = None, details: Optional[str] = None):
+        """
+        Initialize a new CommandError.
         
-        # Create and display the panel
-        panel = Panel(
-            error_text,
-            title="[bold red]Frappe CLI Error[/bold red]",
-            border_style="red",
-            padding=(1, 2)
-        )
-        console.print(panel)
+        Args:
+            message: The main error message
+            command: The command that failed
+            details: Optional detailed explanation or context
+        """
+        self.command = command
+        super().__init__(message, details)
+    
+    def format_for_console(self) -> str:
+        """
+        Format the error message for console output, including the command.
+        
+        Returns:
+            A formatted error message string
+        """
+        base_message = super().format_for_console()
+        if self.command:
+            return f"{base_message}\n\nCommand: {' '.join(self.command)}"
+        return base_message
 
-def handle_command_error(func):
-    """Decorator to handle common command errors with professional messages."""
-    def wrapper(*args, **kwargs):
-        try:
-            return func(*args, **kwargs)
-        except FileNotFoundError as e:
-            if "bench" in str(e).lower():
-                raise FrappeCLIError(
-                    "No Frappe bench found",
-                    "Make sure you're in a bench directory or create one first",
-                    "Run 'frappe bench init' to create a new bench"
-                )
-            elif "site" in str(e).lower():
-                raise FrappeCLIError(
-                    "Site not found",
-                    "The specified site doesn't exist",
-                    "Run 'frappe site list' to see available sites"
-                )
-            else:
-                raise FrappeCLIError(f"File not found: {e}")
-        except PermissionError as e:
-            raise FrappeCLIError(
-                "Permission denied",
-                "You don't have sufficient permissions to perform this action",
-                "Try running with sudo or check file permissions"
-            )
-        except subprocess.CalledProcessError as e:
-            raise FrappeCLIError(
-                f"Command failed: {e.cmd[0]}",
-                f"Exit code: {e.returncode}",
-                "Check the logs for more details or run with --debug flag"
-            )
-        except Exception as e:
-            raise FrappeCLIError(f"Unexpected error: {str(e)}")
-    return wrapper
 
-def print_success(message: str, details: Optional[str] = None):
-    """Print a success message with rich formatting."""
-    success_text = Text()
-    success_text.append("✓ ", style="bold green")
-    success_text.append(message, style="green")
-    
-    if details:
-        success_text.append(f"\n{details}", style="dim")
-    
-    panel = Panel(
-        success_text,
-        title="[bold green]Success[/bold green]",
-        border_style="green",
-        padding=(1, 2)
-    )
-    console.print(panel)
+class PermissionError(FrappeCliError):
+    """
+    Error raised when permission is denied.
+    """
+    exit_code = 5
 
-def print_warning(message: str, details: Optional[str] = None):
-    """Print a warning message with rich formatting."""
-    warning_text = Text()
-    warning_text.append("⚠ ", style="bold yellow")
-    warning_text.append(message, style="yellow")
-    
-    if details:
-        warning_text.append(f"\n{details}", style="dim")
-    
-    panel = Panel(
-        warning_text,
-        title="[bold yellow]Warning[/bold yellow]",
-        border_style="yellow",
-        padding=(1, 2)
-    )
-    console.print(panel)
 
-def print_info(message: str, details: Optional[str] = None):
-    """Print an info message with rich formatting."""
-    info_text = Text()
-    info_text.append("ℹ ", style="bold blue")
-    info_text.append(message, style="blue")
+class ResourceNotFoundError(FrappeCliError):
+    """
+    Error raised when a required resource is not found.
+    """
+    exit_code = 6
+
+
+class NetworkError(FrappeCliError):
+    """
+    Error raised when a network operation fails.
+    """
+    exit_code = 7
+
+
+def handle_error(error: Exception, debug: bool = False) -> None:
+    """
+    Handle an exception by converting it to a Click exception and raising it.
     
-    if details:
-        info_text.append(f"\n{details}", style="dim")
-    
-    panel = Panel(
-        info_text,
-        title="[bold blue]Info[/bold blue]",
-        border_style="blue",
-        padding=(1, 2)
-    )
-    console.print(panel) 
+    Args:
+        error: The exception to handle
+        debug: Whether to include debug information
+        
+    Raises:
+        click.ClickException: Always raised with the formatted error message
+    """
+    if isinstance(error, FrappeCliError):
+        if debug and error.details is None:
+            error.details = str(error.__cause__ if error.__cause__ else "")
+        raise error.to_click_exception()
+    else:
+        # For unexpected errors, wrap in a FrappeCliError
+        message = "An unexpected error occurred"
+        details = str(error) if debug else None
+        wrapped_error = FrappeCliError(message, details)
+        raise wrapped_error.to_click_exception()
