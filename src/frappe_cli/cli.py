@@ -19,9 +19,7 @@ __version__ = importlib.metadata.version("frappe-installer")
 
 
 @click.group()
-@click.option(
-    "--config", type=click.Path(exists=True), help="Path to YAML config file"
-)
+@click.option("--config", type=click.Path(exists=True), help="Path to YAML config file")
 @click.pass_context
 def cli(ctx, config):
     """Frappe Installer CLI - Automate Frappe deployment and management.
