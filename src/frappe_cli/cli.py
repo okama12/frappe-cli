@@ -20,7 +20,7 @@ __version__ = importlib.metadata.version("frappe-installer")
 
 @click.group()
 @click.option(
-    "--config", _type=click.Path(exists=True), _help="Path to YAML config file"
+    "--config", type=click.Path(exists=True), help="Path to YAML config file"
 )
 @click.pass_context
 def cli(ctx, config):
@@ -52,7 +52,7 @@ def status():
 
     console = Console()
     table = Table(
-        _title="Frappe Environment Status", show_header=True, _header_style="bold cyan"
+        title="Frappe Environment Status", show_header=True, header_style="bold cyan"
     )
     table.add_column("Component", style="cyan")
     table.add_column("Status", style="white")
@@ -85,8 +85,8 @@ def status():
         try:
             result = subprocess.run(
                 ["systemctl", "is-active", service_name],
-                _capture_output=True,
-                _text=True,
+                capture_output=True,
+                text=True,
                 check=True,
             )
             status = "✓ Running" if result.stdout.strip() == "active" else "⚠ Inactive"
