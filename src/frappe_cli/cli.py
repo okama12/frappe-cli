@@ -15,7 +15,7 @@ from frappe_cli.service import service
 from frappe_cli.site import site
 from frappe_cli.ssl import ssl
 
-__version__ = importlib.metadata.version("frappe-installer")
+__version__ = importlib.metadata.version("frappe-cli")
 
 
 @click.group()
