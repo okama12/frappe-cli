@@ -34,7 +34,7 @@ logger = setup_logger()
 
 def print_system_info():
     table = Table(
-        _title="System Information", show_header=True, _header_style="bold cyan"
+        title="System Information", show_header=True, header_style="bold cyan"
     )
     table.add_column("Property", style="cyan")
     table.add_column("Value", style="white")
