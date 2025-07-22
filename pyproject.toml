@@ -10,7 +10,7 @@ authors = ["Rashidi Okama <rashidokama@gmail.com>"]
 readme = "README.md"
 packages = [{include = "frappe_cli", from = "src"}]
 license = "MIT"
-repository = "https://github.com/your-username/frappe-installer"
+repository = "https://github.com/okama12/frappe-cli.git"
 keywords = ["frappe", "cli", "installer", "deployment", "management"]
 classifiers = [
     "Development Status :: 4 - Beta",
