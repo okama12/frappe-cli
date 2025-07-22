@@ -3,7 +3,7 @@ requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
-name = "frappe-installer"
+name = "frappe-cli"
 version = "0.1.0"
 description = "Professional CLI for Frappe deployment and management."
 authors = ["Rashidi Okama <rashidokama@gmail.com>"]
