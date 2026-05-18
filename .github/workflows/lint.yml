@@ -31,10 +31,6 @@ jobs:
       run: |
         poetry run black --check .
         
-    - name: Import sort check with isort
-      run: |
-        poetry run isort --check .
-        
     - name: Type check with mypy
       run: |
         poetry run mypy src tests

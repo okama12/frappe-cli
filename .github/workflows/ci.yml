@@ -22,12 +22,10 @@ jobs:
         run: pip install poetry
       - name: Install dependencies
         run: poetry install
-      - name: Lint with ruff
+      - name: Lint and check imports with ruff
         run: poetry run ruff check src/ tests/
       - name: Check formatting with black
         run: poetry run black --check src/ tests/
-      - name: Check imports with isort
-        run: poetry run isort --check-only src/ tests/
       - name: Run tests
         run: |
           PYTHONPATH=src poetry run pytest --cov=src tests/
