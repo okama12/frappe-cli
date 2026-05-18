@@ -270,3 +270,84 @@ class TestSiteCreateStep:
         assert "new-site" in all_args
         assert "dbpass" in all_args
         assert "adminpass" in all_args
+
+
+# ── AppGetStep ────────────────────────────────────────────────────────────────
+
+class TestAppGetStep:
+    def test_check_true_when_app_dir_exists(self, tmp_path):
+        from frappe_cli.install.steps.app import AppGetStep
+        (tmp_path / "apps" / "erpnext").mkdir(parents=True)
+        ctx = make_ctx()
+        with patch("pathlib.Path.home", return_value=tmp_path / "bench_parent"):
+            # Create the expected directory structure
+            bench_parent = tmp_path / "bench_parent"
+            bench_parent.mkdir(exist_ok=True)
+            (bench_parent / "frappe-bench" / "apps" / "erpnext").mkdir(parents=True)
+            assert AppGetStep().check(ctx) is True
+
+    def test_check_false_when_app_missing(self, tmp_path):
+        from frappe_cli.install.steps.app import AppGetStep
+        ctx = make_ctx()
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            assert AppGetStep().check(ctx) is False
+
+    def test_run_calls_bench_get_app(self):
+        from frappe_cli.install.steps.app import AppGetStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            AppGetStep().run(make_ctx())
+        all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
+        assert "get-app" in all_args
+
+
+# ── AppInstallStep ────────────────────────────────────────────────────────────
+
+class TestAppInstallStep:
+    def test_check_true_when_app_listed(self):
+        from frappe_cli.install.steps.app import AppInstallStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="erpnext\nfrappe\n")
+            assert AppInstallStep().check(make_ctx()) is True
+
+    def test_check_false_when_app_not_listed(self):
+        from frappe_cli.install.steps.app import AppInstallStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="frappe\n")
+            assert AppInstallStep().check(make_ctx()) is False
+
+
+# ── SSLSetupStep ──────────────────────────────────────────────────────────────
+
+class TestSSLSetupStep:
+    def test_check_true_when_cert_exists(self, tmp_path):
+        from frappe_cli.install.steps.ssl import SSLSetupStep
+        cert_dir = tmp_path / "live" / "mysite.com"
+        cert_dir.mkdir(parents=True)
+        (cert_dir / "fullchain.pem").write_text("cert")
+        step = SSLSetupStep()
+        with patch.object(step, "_cert_path", return_value=cert_dir / "fullchain.pem"):
+            assert step.check(make_ctx()) is True
+
+    def test_run_calls_certbot(self):
+        from frappe_cli.install.steps.ssl import SSLSetupStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+            SSLSetupStep().run(make_ctx())
+        all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
+        assert "certbot" in all_args
+        assert "mysite.com" in all_args
+        assert "admin@mysite.com" in all_args
+
+
+# ── ALL_STEPS registry ────────────────────────────────────────────────────────
+
+def test_all_steps_has_correct_count():
+    from frappe_cli.install.steps import ALL_STEPS
+    assert len(ALL_STEPS) == 15
+
+
+def test_all_steps_have_unique_names():
+    from frappe_cli.install.steps import ALL_STEPS
+    names = [s.name for s in ALL_STEPS]
+    assert len(names) == len(set(names))
