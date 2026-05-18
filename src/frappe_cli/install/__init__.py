@@ -11,7 +11,7 @@ from .prod import prod
 from .ssh_hardening import ssh_hardening
 from .system import system
 from .user import user
-from .wizard import wizard
+from .wizard import wizard as wizard_cmd
 
 
 @click.group()
@@ -29,4 +29,4 @@ install.add_command(prod)
 install.add_command(ssh_hardening)
 install.add_command(system)
 install.add_command(user)
-install.add_command(wizard)
+install.add_command(wizard_cmd)
