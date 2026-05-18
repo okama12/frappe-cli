@@ -64,7 +64,7 @@ def collect_inputs(
 
 
 def collect_credentials_for_resume(
-    console: Console, state: InstallState
+    console: Console, state: InstallState, skip_ssl: bool = False
 ) -> InstallContext:
     console.print("\n  [yellow]Resuming previous install.[/yellow]")
     console.print(
@@ -89,4 +89,5 @@ def collect_credentials_for_resume(
         ubuntu_version=state.ubuntu_version,
         dry_run=False,
         debug=False,
+        skip_ssl=skip_ssl,
     )

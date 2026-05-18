@@ -1,6 +1,5 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import List
 
 from rich.text import Text
 
@@ -21,7 +20,7 @@ class StepDisplay:
 
 
 class StepListRenderer:
-    def __init__(self, step_names: List[str]):
+    def __init__(self, step_names: list[str]):
         self._steps = [StepDisplay(name=s) for s in step_names]
 
     def render(self) -> Text:

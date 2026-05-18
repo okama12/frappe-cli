@@ -7,7 +7,10 @@ from rich.text import Text
 
 
 def print_header(console: Console) -> None:
-    version = importlib.metadata.version("frappe-cli")
+    try:
+        version = importlib.metadata.version("frappe-cli")
+    except importlib.metadata.PackageNotFoundError:
+        version = "dev"
     content = Text()
     content.append("  Frappe CLI  ", style="bold green")
     content.append(f"v{version}\n", style="bold")
