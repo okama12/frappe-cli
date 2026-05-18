@@ -28,6 +28,7 @@ jobs:
       url: https://pypi.org/p/frappe-cli
     permissions:
       id-token: write
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
