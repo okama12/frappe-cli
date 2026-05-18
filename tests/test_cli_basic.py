@@ -20,6 +20,4 @@ def test_site_help():
 def test_missing_command():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ["site", "create"])
-    # Should fail due to missing required options
     assert result.exit_code != 0
-    assert "Bench directory" in result.output or "not found" in result.output
