@@ -93,3 +93,88 @@ class TestUvCheckStep:
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=1)
             assert step.check(make_ctx()) is False
+
+
+# ── NodeJSStep ────────────────────────────────────────────────────────────────
+
+class TestNodeJSStep:
+    def test_check_true_when_node_present(self):
+        from frappe_cli.install.steps.nodejs import NodeJSStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            assert NodeJSStep().check(make_ctx()) is True
+
+    def test_check_false_when_node_missing(self):
+        from frappe_cli.install.steps.nodejs import NodeJSStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1)
+            assert NodeJSStep().check(make_ctx()) is False
+
+    def test_run_uses_node18_for_2204(self):
+        from frappe_cli.install.steps.nodejs import NodeJSStep
+        ctx = make_ctx(ubuntu_version="22.04")
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+            NodeJSStep().run(ctx)
+        all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
+        assert "18" in all_args
+
+    def test_run_uses_node20_for_2404(self):
+        from frappe_cli.install.steps.nodejs import NodeJSStep
+        ctx = make_ctx(ubuntu_version="24.04")
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+            NodeJSStep().run(ctx)
+        all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
+        assert "20" in all_args
+
+
+# ── MariaDB ───────────────────────────────────────────────────────────────────
+
+class TestMariaDBInstallStep:
+    def test_check_true_when_running_and_config_exists(self, tmp_path):
+        from frappe_cli.install.steps.mariadb import MariaDBInstallStep
+        step = MariaDBInstallStep()
+        fake_cnf = tmp_path / "99-frappe.cnf"
+        fake_cnf.write_text("[mysqld]")
+        with patch("subprocess.run") as mock_run, \
+             patch.object(step, "CNF_PATH", str(fake_cnf)):
+            mock_run.return_value = MagicMock(returncode=0)
+            assert step.check(make_ctx()) is True
+
+    def test_check_false_when_mysqladmin_fails(self):
+        from frappe_cli.install.steps.mariadb import MariaDBInstallStep
+        step = MariaDBInstallStep()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1)
+            assert step.check(make_ctx()) is False
+
+
+class TestMariaDBSecureStep:
+    def test_check_true_when_password_auth_works(self):
+        from frappe_cli.install.steps.mariadb import MariaDBSecureStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0)
+            assert MariaDBSecureStep().check(make_ctx()) is True
+
+    def test_check_false_when_auth_fails(self):
+        from frappe_cli.install.steps.mariadb import MariaDBSecureStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1)
+            assert MariaDBSecureStep().check(make_ctx()) is False
+
+
+# ── RedisStep ─────────────────────────────────────────────────────────────────
+
+class TestRedisStep:
+    def test_check_true_when_ping_returns_pong(self):
+        from frappe_cli.install.steps.redis import RedisStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="PONG\n")
+            assert RedisStep().check(make_ctx()) is True
+
+    def test_check_false_when_ping_fails(self):
+        from frappe_cli.install.steps.redis import RedisStep
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
+            assert RedisStep().check(make_ctx()) is False
