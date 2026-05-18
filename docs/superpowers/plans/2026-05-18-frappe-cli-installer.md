@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Implement a `frappe install` wizard command that automates end-to-end production Frappe deployment on Ubuntu 22.04/24.04 VPS — collecting all credentials upfront then running 15 idempotent steps with a live Rich UI and `--resume` support.
+**Goal:** Implement a `frappe install` wizard command that automates end-to-end production Frappe deployment on Ubuntu 22.04/24.04 VPS — collecting all credentials upfront then running 15 idempotent steps with a live Rich UI, `--resume` support, and `--skip-ssl` for local/VM testing without a real domain.
 
 **Architecture:** Option A from design — keep existing module layout, gut duplicated internals, add `ui/` layer for shared Rich components, add `install/steps/` for one-file-per-step implementations, add `install/wizard.py` as the orchestrator. All steps share a single `InstallContext` dataclass; no globals.
 
@@ -98,6 +98,16 @@ def test_app_name_custom_app():
 def test_bench_path_is_under_home():
     ctx = make_ctx(bench_name="frappe-bench")
     assert ctx.bench_path == Path.home() / "frappe-bench"
+
+
+def test_skip_ssl_defaults_false():
+    ctx = make_ctx()
+    assert ctx.skip_ssl is False
+
+
+def test_skip_ssl_can_be_set():
+    ctx = make_ctx(skip_ssl=True)
+    assert ctx.skip_ssl is True
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -129,6 +139,7 @@ class InstallContext:
     ubuntu_version: str
     dry_run: bool
     debug: bool = False
+    skip_ssl: bool = False
 
     @property
     def app_name(self) -> str:
@@ -609,7 +620,7 @@ def _detect_ubuntu_version() -> str:
     return "22.04"
 
 
-def collect_inputs(console: Console, dry_run: bool = False, debug: bool = False) -> InstallContext:
+def collect_inputs(console: Console, dry_run: bool = False, debug: bool = False, skip_ssl: bool = False) -> InstallContext:
     print_header(console)
     console.print("\n  Let's get your Frappe production server ready.\n")
 
@@ -647,6 +658,7 @@ def collect_inputs(console: Console, dry_run: bool = False, debug: bool = False)
         ubuntu_version=ubuntu_version,
         dry_run=dry_run,
         debug=debug,
+        skip_ssl=skip_ssl,
     )
 
 
@@ -1695,6 +1707,29 @@ def test_install_resume_fails_without_state():
     assert result.exit_code != 0
 
 
+def test_skip_ssl_flag_omits_ssl_step():
+    runner = CliRunner()
+    from frappe_cli.install.context import InstallContext
+    from frappe_cli.install.steps.ssl import SSLSetupStep
+    ctx = InstallContext(
+        bench_name="b", site_name="s.com", frappe_branch="v15",
+        app_url="https://github.com/frappe/erpnext", app_branch="v15",
+        sudo_password="s", mariadb_root_password="d",
+        admin_password="a", ssl_email="e@e.com",
+        ubuntu_version="22.04", dry_run=False, skip_ssl=True,
+    )
+    ssl_step = MagicMock(spec=SSLSetupStep)
+    ssl_step.name = "ssl_setup"
+    ssl_step.description = "Configure SSL (Let's Encrypt)"
+    with patch("frappe_cli.install.wizard.collect_inputs", return_value=ctx), \
+         patch("frappe_cli.install.wizard.ALL_STEPS", [ssl_step]), \
+         patch("frappe_cli.install.wizard.save_state"), \
+         patch("frappe_cli.install.wizard.clear_state"):
+        result = runner.invoke(cli, ["install", "wizard", "--skip-ssl"])
+    ssl_step.run.assert_not_called()
+    assert result.exit_code == 0
+
+
 def test_install_step_failure_exits_nonzero():
     runner = CliRunner()
     from frappe_cli.install.steps.base import StepError
@@ -1751,7 +1786,8 @@ console = Console()
 @click.option("--resume", is_flag=True, help="Resume from the last failed step")
 @click.option("--dry-run", is_flag=True, help="Print commands without executing")
 @click.option("--debug", is_flag=True, help="Show full command output during execution")
-def wizard(resume, dry_run, debug):
+@click.option("--skip-ssl", is_flag=True, help="Skip SSL setup (for local/VM testing without a real domain)")
+def wizard(resume, dry_run, debug, skip_ssl):
     """Interactive production installer for Frappe."""
     if resume:
         if not state_exists():
@@ -1761,18 +1797,21 @@ def wizard(resume, dry_run, debug):
         ctx = collect_credentials_for_resume(console, state)
         completed_steps = set(state.completed_steps)
     else:
-        ctx = collect_inputs(console, dry_run=dry_run, debug=debug)
+        ctx = collect_inputs(console, dry_run=dry_run, debug=debug, skip_ssl=skip_ssl)
         completed_steps = set()
 
-    renderer = StepListRenderer([s.description for s in ALL_STEPS])
-    for step in ALL_STEPS:
+    # Filter out SSL step when --skip-ssl is passed
+    active_steps = [s for s in ALL_STEPS if not (ctx.skip_ssl and s.name == "ssl_setup")]
+
+    renderer = StepListRenderer([s.description for s in active_steps])
+    for step in active_steps:
         if step.name in completed_steps:
             renderer.mark_skipped(step.description)
 
     failed = None
 
     with Live(renderer.render(), console=console, refresh_per_second=4) as live:
-        for step in ALL_STEPS:
+        for step in active_steps:
             if step.name in completed_steps:
                 continue
 
