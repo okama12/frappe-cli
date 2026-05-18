@@ -1,4 +1,6 @@
+import os
 import subprocess
+import tempfile
 from pathlib import Path
 from .base import InstallStep, StepError
 
@@ -34,11 +36,19 @@ class MariaDBSecureStep(InstallStep):
     description = "Secure MariaDB"
 
     def check(self, ctx) -> bool:
-        result = subprocess.run(
-            ["mysql", "-u", "root", f"-p{ctx.mariadb_root_password}", "-e", "SELECT 1;"],
-            capture_output=True, text=True,
-        )
-        return result.returncode == 0
+        config = f"[client]\npassword={ctx.mariadb_root_password}\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".cnf", delete=False) as tmp:
+            tmp.write(config)
+            tmp_name = tmp.name
+        try:
+            os.chmod(tmp_name, 0o600)
+            result = subprocess.run(
+                ["mysql", f"--defaults-extra-file={tmp_name}", "-u", "root", "-e", "SELECT 1;"],
+                capture_output=True, text=True,
+            )
+            return result.returncode == 0
+        finally:
+            os.unlink(tmp_name)
 
     def run(self, ctx) -> None:
         pw = ctx.mariadb_root_password.replace("'", "\\'")

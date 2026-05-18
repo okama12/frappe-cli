@@ -11,6 +11,8 @@ class NodeJSStep(InstallStep):
         return result.returncode == 0
 
     def run(self, ctx) -> None:
+        if ctx.dry_run:
+            return
         node_version = "18" if ctx.ubuntu_version == "22.04" else "20"
         try:
             script = subprocess.run(
