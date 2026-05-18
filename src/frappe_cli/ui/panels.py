@@ -44,7 +44,7 @@ def print_error(
     if hint.strip():
         parts.append(f"\n  [dim]stderr:[/dim] {hint.strip()[:300]}")
     parts.append("\n  Fix the issue then re-run:")
-    parts.append("    [cyan]frappe install --resume[/cyan]")
+    parts.append("    [cyan]frappe install wizard --resume[/cyan]")
     console.print(
         Panel(
             "\n".join(parts),

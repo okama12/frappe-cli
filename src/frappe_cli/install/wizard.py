@@ -33,7 +33,7 @@ def wizard(resume, dry_run, debug, skip_ssl):
             )
             sys.exit(1)
         state = load_state()
-        ctx = collect_credentials_for_resume(console, state, skip_ssl=skip_ssl)
+        ctx = collect_credentials_for_resume(console, state, skip_ssl=skip_ssl, dry_run=dry_run, debug=debug)
         completed_steps = set(state.completed_steps)
     else:
         ctx = collect_inputs(console, dry_run=dry_run, debug=debug, skip_ssl=skip_ssl)

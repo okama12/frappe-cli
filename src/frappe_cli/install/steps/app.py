@@ -35,7 +35,7 @@ class AppInstallStep(InstallStep):
             text=True,
             cwd=str(ctx.bench_path),
         )
-        return ctx.app_name in result.stdout
+        return ctx.app_name in result.stdout.splitlines()
 
     def run(self, ctx) -> None:
         self._run(
