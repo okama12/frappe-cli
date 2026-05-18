@@ -1,5 +1,6 @@
-from frappe_cli.install.context import InstallContext
 from pathlib import Path
+
+from frappe_cli.install.context import InstallContext
 
 
 def make_ctx(**overrides):

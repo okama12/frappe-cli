@@ -75,4 +75,15 @@ coverage.xml
 
 # OS files
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Claude Code
+CLAUDE.md
+.claude/
+
+# Project planning docs (local only)
+docs/
+
+# Scratch files
+checklist.md
+frappe-installer.log

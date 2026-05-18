@@ -1,6 +1,5 @@
-from click.testing import CliRunner
-
 import frappe_cli.cli as cli
+from click.testing import CliRunner
 
 
 def test_monitor_help():

@@ -1,8 +1,10 @@
-import json
-from pathlib import Path
 import pytest
 from frappe_cli.install.state import (
-    InstallState, save_state, load_state, clear_state, state_exists, STATE_FILE
+    InstallState,
+    clear_state,
+    load_state,
+    save_state,
+    state_exists,
 )
 
 
@@ -37,24 +39,49 @@ def test_save_and_load_roundtrip(clean_state):
 
 
 def test_save_creates_file(clean_state):
-    save_state(InstallState(bench_name="b", site_name="s.com", frappe_branch="v15",
-                            app_url="u", app_branch="v15", ssl_email="e@e.com",
-                            ubuntu_version="22.04", completed_steps=[]))
+    save_state(
+        InstallState(
+            bench_name="b",
+            site_name="s.com",
+            frappe_branch="v15",
+            app_url="u",
+            app_branch="v15",
+            ssl_email="e@e.com",
+            ubuntu_version="22.04",
+            completed_steps=[],
+        )
+    )
     assert state_exists()
 
 
 def test_clear_removes_file(clean_state):
-    save_state(InstallState(bench_name="b", site_name="s.com", frappe_branch="v15",
-                            app_url="u", app_branch="v15", ssl_email="e@e.com",
-                            ubuntu_version="22.04", completed_steps=[]))
+    save_state(
+        InstallState(
+            bench_name="b",
+            site_name="s.com",
+            frappe_branch="v15",
+            app_url="u",
+            app_branch="v15",
+            ssl_email="e@e.com",
+            ubuntu_version="22.04",
+            completed_steps=[],
+        )
+    )
     clear_state()
     assert not state_exists()
 
 
 def test_passwords_not_in_state(clean_state):
-    state = InstallState(bench_name="b", site_name="s.com", frappe_branch="v15",
-                         app_url="u", app_branch="v15", ssl_email="e@e.com",
-                         ubuntu_version="22.04", completed_steps=[])
+    state = InstallState(
+        bench_name="b",
+        site_name="s.com",
+        frappe_branch="v15",
+        app_url="u",
+        app_branch="v15",
+        ssl_email="e@e.com",
+        ubuntu_version="22.04",
+        completed_steps=[],
+    )
     save_state(state)
     raw = clean_state.read_text()
     assert "sudo_password" not in raw
