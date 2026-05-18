@@ -1,62 +1,14 @@
 import glob
-import logging
 import os
 
 import click
 from rich.console import Console
 
-LOG_FILE = "/var/log/frappe-installer.log"
+from ..utils.logging import get_logger
+from ..utils.shell import RichShellRunner
+
 console = Console()
-
-
-def setup_logger():
-    logger = logging.getLogger("frappe_installer.site.list")
-    logger.setLevel(logging.INFO)
-    try:
-        handler = logging.FileHandler(LOG_FILE)
-    except PermissionError:
-        handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter("[%(asctime)s] %(message)s")
-    handler.setFormatter(formatter)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
-
-
-class RichShell:
-    def __init__(self, console, dry_run=False, debug=False):
-        self.console = console
-        self.dry_run = dry_run
-        self.debug = debug
-
-    def run(self, cmd, description, ignore_errors=False):
-        if self.debug:
-            self.console.print(f"[dim]DEBUG: Command: {' '.join(cmd)}[/dim]")
-        if self.dry_run:
-            self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
-            logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
-            return 0
-
-        self.console.print(f"[blue]{description}...[/blue]")
-        try:
-            result = os.system(" ".join(cmd))
-            if result != 0:
-                raise click.ClickException(f"Command failed: {' '.join(cmd)}")
-            logger.info(f"[site] Success: {description}")
-            self.console.print(f"[green]✓ {description} - Complete[/green]")
-            return result
-
-        except Exception as e:
-            logger.error(f"[site] Failed: {' '.join(cmd)} - {e}")
-            self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
-            if not ignore_errors:
-                raise click.ClickException(str(e))
-            else:
-                self.console.print("[yellow]Continuing despite error...[/yellow]")
-            return 1
+logger = get_logger("site.list")
 
 
 @click.command()
@@ -103,7 +55,9 @@ def list(bench_name, dry_run, debug, ignore_errors):
         return
 
     console.print("[green]Sites and installed apps:[/green]")
-    _shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
+    _shell_runner = RichShellRunner(
+        console=console, dry_run=dry_run, debug=debug, module_name="site.list"
+    )
     for s in sites:
         _site_path = os.path.join(sites_path, s)
         # Run bench command from the bench directory

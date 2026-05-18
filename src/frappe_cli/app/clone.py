@@ -1,5 +1,4 @@
 import getpass
-import logging
 import os
 import pwd
 
@@ -7,59 +6,11 @@ import click
 from rich.console import Console
 from rich.prompt import Prompt
 
-from ..utils import shell
+from ..utils.logging import get_logger
+from ..utils.shell import RichShellRunner
 
-LOG_FILE = "/var/log/frappe-installer.log"
 console = Console()
-
-
-def setup_logger():
-    logger = logging.getLogger("frappe_installer.app.clone")
-    logger.setLevel(logging.INFO)
-    try:
-        handler = logging.FileHandler(LOG_FILE)
-    except PermissionError:
-        handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter("[%(asctime)s] %(message)s")
-    handler.setFormatter(formatter)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
-
-
-class RichShell:
-    def __init__(self, console, dry_run=False, debug=False):
-        self.console = console
-        self.dry_run = dry_run
-        self.debug = debug
-
-    def run(self, cmd, description, ignore_errors=False):
-        if self.debug:
-            self.console.print(f"[dim]DEBUG: Command: {' '.join(cmd)}[/dim]")
-        if self.dry_run:
-            self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
-            logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
-            return 0
-
-        self.console.print(f"[blue]{description}...[/blue]")
-        try:
-            # Use shell.run for safety, but keep output/flow the same
-            _result = shell.run(cmd, check=True, _capture_output=False)
-            logger.info(f"[clone] Success: {description}")
-            self.console.print(f"[green]✓ {description} - Complete[/green]")
-            return 0
-
-        except Exception as e:
-            logger.error(f"[clone] Failed: {' '.join(cmd)} - {e}")
-            self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
-            if not ignore_errors:
-                raise click.ClickException(str(e))
-            else:
-                self.console.print("[yellow]Continuing despite error...[/yellow]")
-            return 1
+logger = get_logger("app.clone")
 
 
 def fix_ownership(path):
@@ -116,7 +67,9 @@ def clone(bench_name, repo_url, branch, dry_run, debug, ignore_errors):
             "[bold red]Do not run this script as root! Use a regular user for security and correct permissions.[/bold red]"
         )
         raise click.ClickException("Do not run as root.")
-    shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
+    shell_runner = RichShellRunner(
+        console=console, dry_run=dry_run, debug=debug, module_name="app.clone"
+    )
     # Resolve bench path to user's home if not absolute
     user_home = os.path.expanduser("~")
     if not os.path.isabs(bench_name):

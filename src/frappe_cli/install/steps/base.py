@@ -55,19 +55,25 @@ class InstallStep(ABC):
             subprocess.run(
                 ["sudo", "-S", "cp", tmp_name, path],
                 input=(ctx.sudo_password + "\n").encode(),
-                capture_output=True, check=True,
+                capture_output=True,
+                check=True,
             )
             subprocess.run(
                 ["sudo", "-S", "chmod", "644", path],
                 input=(ctx.sudo_password + "\n").encode(),
-                capture_output=True, check=True,
+                capture_output=True,
+                check=True,
             )
         except subprocess.CalledProcessError as e:
-            raise StepError(f"Failed to write {path}", hint=e.stderr.decode(errors="replace"))
+            raise StepError(
+                f"Failed to write {path}", hint=e.stderr.decode(errors="replace")
+            )
         finally:
             os.unlink(tmp_name)
 
-    def _run(self, ctx: InstallContext, cmd: list[str], cwd: str | None = None) -> subprocess.CompletedProcess:
+    def _run(
+        self, ctx: InstallContext, cmd: list[str], cwd: str | None = None
+    ) -> subprocess.CompletedProcess:
         """Run a command as current user (no sudo)."""
         if ctx.dry_run:
             return subprocess.CompletedProcess(cmd, 0, "", "")

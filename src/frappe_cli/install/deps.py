@@ -1,4 +1,3 @@
-import logging
 import os
 import platform
 import queue
@@ -13,25 +12,9 @@ from rich.panel import Panel
 from rich.table import Table
 
 from ..utils import shell
+from ..utils.logging import get_logger
 
-LOG_FILE = "/var/log/frappe-installer.log"
-
-
-def setup_logger():
-    logger = logging.getLogger("frappe_installer.install.deps")
-    logger.setLevel(logging.INFO)
-    try:
-        handler = logging.FileHandler(LOG_FILE)
-    except PermissionError:
-        handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter("[%(asctime)s] %(message)s")
-    handler.setFormatter(formatter)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
+logger = get_logger("install.deps")
 console = Console()
 
 

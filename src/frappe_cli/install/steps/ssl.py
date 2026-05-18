@@ -1,5 +1,6 @@
 import subprocess
 from pathlib import Path
+
 from .base import InstallStep
 
 
@@ -16,12 +17,21 @@ class SSLSetupStep(InstallStep):
     def run(self, ctx) -> None:
         result = subprocess.run(["which", "certbot"], capture_output=True)
         if result.returncode != 0:
-            self._sudo(ctx, ["apt-get", "install", "-y", "certbot", "python3-certbot-nginx"])
-        self._sudo(ctx, [
-            "certbot", "--nginx",
-            "-d", ctx.site_name,
-            "--non-interactive", "--agree-tos",
-            "-m", ctx.ssl_email,
-        ])
+            self._sudo(
+                ctx, ["apt-get", "install", "-y", "certbot", "python3-certbot-nginx"]
+            )
+        self._sudo(
+            ctx,
+            [
+                "certbot",
+                "--nginx",
+                "-d",
+                ctx.site_name,
+                "--non-interactive",
+                "--agree-tos",
+                "-m",
+                ctx.ssl_email,
+            ],
+        )
         self._sudo(ctx, ["systemctl", "enable", "certbot.timer"])
         self._sudo(ctx, ["systemctl", "start", "certbot.timer"])

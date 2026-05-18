@@ -1,27 +1,10 @@
-import logging
-
 import click
 from rich.console import Console
 
-LOG_FILE = "/var/log/frappe-installer.log"
+from ..utils.logging import get_logger
+
 console = Console()
-
-
-def setup_logger():
-    logger = logging.getLogger("frappe_installer.optimize.performance")
-    logger.setLevel(logging.INFO)
-    try:
-        handler = logging.FileHandler(LOG_FILE)
-    except PermissionError:
-        handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter("[%(asctime)s] %(message)s")
-    handler.setFormatter(formatter)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
+logger = get_logger("optimize.performance")
 
 
 @click.command()

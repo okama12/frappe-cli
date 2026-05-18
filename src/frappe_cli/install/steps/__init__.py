@@ -1,15 +1,15 @@
-from .system import SystemUpdateStep, SystemDepsStep
-from .uv_check import UvCheckStep
-from .nodejs import NodeJSStep
-from .mariadb import MariaDBInstallStep, MariaDBSecureStep
-from .redis import RedisStep
-from .wkhtmltopdf import WkhtmltopdfStep
+from .app import AppGetStep, AppInstallStep
 from .bench import BenchInstallStep
 from .init_bench import BenchInitStep
-from .site import SiteCreateStep
-from .app import AppGetStep, AppInstallStep
+from .mariadb import MariaDBInstallStep, MariaDBSecureStep
+from .nodejs import NodeJSStep
 from .production import ProductionSetupStep
+from .redis import RedisStep
+from .site import SiteCreateStep
 from .ssl import SSLSetupStep
+from .system import SystemDepsStep, SystemUpdateStep
+from .uv_check import UvCheckStep
+from .wkhtmltopdf import WkhtmltopdfStep
 
 ALL_STEPS = [
     SystemUpdateStep(),

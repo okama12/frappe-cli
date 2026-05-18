@@ -1,29 +1,14 @@
-import logging
 import os
 
 import click
 from rich.console import Console
 from rich.prompt import Prompt
 
-LOG_FILE = "/var/log/frappe-installer.log"
+from ..utils.logging import get_logger
+from ..utils.shell import RichShellRunner
+
 console = Console()
-
-
-def setup_logger():
-    logger = logging.getLogger("frappe_installer.install.init")
-    logger.setLevel(logging.INFO)
-    try:
-        handler = logging.FileHandler(LOG_FILE)
-    except PermissionError:
-        handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter("[%(asctime)s] %(message)s")
-    handler.setFormatter(formatter)
-    if not logger.handlers:
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
+logger = get_logger("install.init")
 
 
 def validate_sudo():
@@ -35,38 +20,6 @@ def validate_sudo():
         )
         raise click.ClickException("Sudo validation failed.")
     console.print("[bold green]✓ Sudo privileges validated[/bold green]")
-
-
-class RichShell:
-    def __init__(self, console, dry_run=False, debug=False):
-        self.console = console
-        self.dry_run = dry_run
-        self.debug = debug
-
-    def run(self, cmd, description, ignore_errors=False):
-        if self.debug:
-            self.console.print(f"[dim]DEBUG: Command: {' '.join(cmd)}[/dim]")
-        if self.dry_run:
-            self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
-            logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
-            return
-
-        self.console.print(f"[blue]{description}...[/blue]")
-        try:
-            result = os.system(" ".join(cmd))
-            if result != 0:
-                raise click.ClickException(f"Command failed: {' '.join(cmd)}")
-            logger.info(f"[init] Success: {description}")
-            self.console.print(f"[green]✓ {description} - Complete[/green]")
-            return result
-
-        except Exception as e:
-            logger.error(f"[init] Failed: {' '.join(cmd)}")
-            self.console.print(f"[bold red]✗ {description} failed.[/bold red]")
-            if not ignore_errors:
-                raise click.ClickException(str(e))
-            else:
-                self.console.print("[yellow]Continuing despite error...[/yellow]")
 
 
 @click.command()
@@ -108,7 +61,9 @@ def init(ctx, dry_run, debug, ignore_errors):
     console.print(
         f"[cyan]Initializing bench: {bench_path} (branch: {frappe_branch})[/cyan]"
     )
-    shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
+    shell_runner = RichShellRunner(
+        console=console, dry_run=dry_run, debug=debug, module_name="install.init"
+    )
     shell_runner.run(
         ["bench", "init", "--frappe-branch", frappe_branch, bench_path],
         "Initializing Frappe Bench",

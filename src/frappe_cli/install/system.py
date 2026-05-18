@@ -1,5 +1,3 @@
-import getpass
-import logging
 import subprocess
 import sys
 
@@ -7,29 +5,11 @@ import click
 from rich.console import Console
 from rich.table import Table
 
-LOG_FILE = (
-    "/var/log/frappe-installer.log"
-    if getpass.getuser() == "root"
-    else "frappe-installer.log"
-)
+from ..utils.logging import get_logger
+from ..utils.shell import RichShellRunner
+
 console = Console()
-
-
-def setup_logger():
-    logger = logging.getLogger("frappe_installer.install.system")
-    logger.setLevel(logging.INFO)
-    if not logger.handlers:
-        try:
-            handler = logging.FileHandler(LOG_FILE)
-        except PermissionError:
-            handler = logging.FileHandler("frappe-installer.log")
-        formatter = logging.Formatter("[%(asctime)s] %(message)s")
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
+logger = get_logger("install.system")
 
 
 def print_system_info():
@@ -72,36 +52,6 @@ def validate_sudo():
         sys.exit(1)
 
 
-class RichShell:
-    def __init__(self, console, dry_run=False, debug=False):
-        self.console = console
-        self.dry_run = dry_run
-        self.debug = debug
-
-    def run(self, cmd, description, ignore_errors=False):
-        if self.debug:
-            self.console.print(f"[dim]DEBUG: Command: {' '.join(cmd)}[/dim]")
-        if self.dry_run:
-            self.console.print(f"[yellow][dry-run] {description}: {' '.join(cmd)}")
-            logger.info(f"[dry-run] {description}: {' '.join(cmd)}")
-            return
-
-        self.console.print(f"[blue]{description}...[/blue]")
-        try:
-            result = subprocess.run(cmd, check=True)
-            logger.info(f"[system] Success: {description}")
-            self.console.print(f"[green]✓ {description} - Complete[/green]")
-            return result
-
-        except subprocess.CalledProcessError:
-            logger.error(f"[system] Failed: {' '.join(cmd)}")
-            self.console.print(f"[bold red]✗ {description} failed.[/bold red]")
-            if not ignore_errors:
-                sys.exit(1)
-            else:
-                self.console.print("[yellow]Continuing despite error...[/yellow]")
-
-
 def detect_package_manager():
     if subprocess.call(["which", "apt"], stdout=subprocess.DEVNULL) == 0:
         return "apt"
@@ -132,7 +82,9 @@ def system(ctx, dry_run, debug, ignore_errors):
     pkg_mgr = detect_package_manager()
     logger.info(f"[system] Detected package manager: {pkg_mgr}")
     logger.info("[system] Starting system update and setup...")
-    shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
+    shell_runner = RichShellRunner(
+        console=console, dry_run=dry_run, debug=debug, module_name="install.system"
+    )
     if pkg_mgr == "apt":
         shell_runner.run(
             ["sudo", "apt", "update"],

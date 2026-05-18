@@ -1,110 +1,14 @@
-import logging
 import os
 import subprocess
 
 import click
 from rich.console import Console
 
-# LOG_FILE = "/var/log/frappe-installer.log" # This path requires root permissions
-# Fallback to a user-writable log file if /var/log is not accessible
-try:
-    if not os.path.exists("/var/log"):
-        os.makedirs("/var/log")
-    LOG_FILE = "/var/log/frappe-installer.log"
-except OSError:
-    LOG_FILE = (
-        "frappe-installer.log"  # Log in current directory if /var/log is not writable
-    )
+from ..utils.logging import get_logger
+from ..utils.shell import RichShellRunner
 
 console = Console()
-
-
-def setup_logger():
-    """Sets up a logger for the Frappe installer, logging to a file."""
-    logger = logging.getLogger("frappe_installer.install.prod")
-    logger.setLevel(logging.INFO)
-    try:
-        handler = logging.FileHandler(LOG_FILE)
-    except PermissionError:
-        # Fallback for when /var/log is not writable
-        handler = logging.FileHandler("frappe-installer.log")
-    formatter = logging.Formatter("[%(asctime)s] %(message)s")
-    handler.setFormatter(formatter)
-    # Ensure handlers are not duplicated if setup_logger is called multiple times
-    if not logger.handlers:
-        logger.addHandler(handler)
-    return logger
-
-
-logger = setup_logger()
-
-
-class RichShell:
-    """A wrapper for subprocess commands with Rich console output and logging."""
-
-    def __init__(self, console, dry_run=False, debug=False):
-        self.console = console
-        self.dry_run = dry_run
-        self.debug = debug
-
-    def run(self, cmd, description, ignore_errors=False, input_text=None):
-        """
-        Runs a shell command.
-
-        Args:
-            cmd (list): The command and its arguments as a list.
-            description (str): A human-readable description of the command.
-            ignore_errors (bool): If True, continues execution even if the command fails.
-            input_text (str): Text to pass to the command's stdin.
-
-        Returns:
-            int: The return code of the executed command.
-        """
-        cmd_str = " ".join(cmd)
-        if self.debug:
-            self.console.print(f"[dim]DEBUG: Command: {cmd_str}[/dim]")
-        if self.dry_run:
-            self.console.print(f"[yellow][dry-run] {description}: {cmd_str}")
-            logger.info(f"[dry-run] {description}: {cmd_str}")
-            return 0
-
-        self.console.print(f"[blue]{description}...[/blue]")
-        try:
-            # Capture output and decode as text for better error reporting
-            if input_text:
-                result = subprocess.run(
-                    cmd, input=input_text, check=True, capture_output=True, text=True
-                )
-            else:
-                result = subprocess.run(cmd, check=True, capture_output=True, text=True)
-
-            logger.info(f"[prod] Success: {description}")
-            self.console.print(f"[green]✓ {description} - Complete[/green]")
-            if self.debug and result.stdout:
-                self.console.print(f"[dim]STDOUT:\n{result.stdout}[/dim]")
-            if self.debug and result.stderr:
-                self.console.print(f"[dim]STDERR:\n{result.stderr}[/dim]")
-            return result.returncode
-
-        except subprocess.CalledProcessError as e:
-            logger.error(f"[prod] Failed: {cmd_str} - {e}")
-            self.console.print(f"[bold red]✗ {description} failed:[/bold red]")
-            self.console.print(f"[red]STDOUT: {e.stdout}[/red]")
-            self.console.print(f"[red]STDERR: {e.stderr}[/red]")
-            if not ignore_errors:
-                raise click.ClickException(f"Command failed: {cmd_str}\n{e.stderr}")
-            else:
-                self.console.print("[yellow]Continuing despite error...[/yellow]")
-            return e.returncode
-
-        except Exception as e:
-            logger.error(f"[prod] Failed: {cmd_str} - {e}")
-            self.console.print(f"[bold red]✗ {description} failed: {e}[/bold red]")
-            if not ignore_errors:
-                raise click.ClickException(str(e))
-            else:
-                self.console.print("[yellow]Continuing despite error...[/yellow]")
-            return 1
+logger = get_logger("install.prod")
 
 
 def clean_nginx_upstreams(conf_path):
@@ -291,7 +195,9 @@ def prod(ctx, bench_name, dry_run, debug, ignore_errors):
 
     # Change to bench directory
     os.chdir(bench_path)
-    shell_runner = RichShell(console, dry_run=dry_run, debug=debug)
+    shell_runner = RichShellRunner(
+        console=console, dry_run=dry_run, debug=debug, module_name="install.prod"
+    )
 
     # Find bench command
     try:

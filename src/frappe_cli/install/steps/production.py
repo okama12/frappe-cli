@@ -3,6 +3,7 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
+
 from .base import InstallStep, StepError
 
 
@@ -28,7 +29,8 @@ class ProductionSetupStep(InstallStep):
             result = subprocess.run(
                 ["bench", "setup", "production", current_user, "--yes"],
                 cwd=str(ctx.bench_path),
-                capture_output=True, text=True,
+                capture_output=True,
+                text=True,
                 env=env,
             )
             if result.returncode != 0:

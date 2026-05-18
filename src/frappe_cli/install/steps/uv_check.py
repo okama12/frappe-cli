@@ -19,7 +19,8 @@ class UvCheckStep(InstallStep):
         try:
             script = subprocess.run(
                 ["curl", "-LsSf", "https://astral.sh/uv/install.sh"],
-                capture_output=True, check=True,
+                capture_output=True,
+                check=True,
             )
             subprocess.run(["sh"], input=script.stdout, check=True)
         except subprocess.CalledProcessError as e:

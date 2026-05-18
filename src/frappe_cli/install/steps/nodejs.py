@@ -1,4 +1,5 @@
 import subprocess
+
 from .base import InstallStep, StepError
 
 
@@ -17,14 +18,19 @@ class NodeJSStep(InstallStep):
         try:
             script = subprocess.run(
                 ["curl", "-fsSL", f"https://deb.nodesource.com/setup_{node_version}.x"],
-                capture_output=True, check=True,
+                capture_output=True,
+                check=True,
             )
             subprocess.run(
                 ["sudo", "-S", "bash"],
                 input=(ctx.sudo_password + "\n").encode() + script.stdout,
-                check=True, capture_output=True,
+                check=True,
+                capture_output=True,
             )
         except subprocess.CalledProcessError as e:
-            raise StepError("Failed to run NodeSource setup script", hint=e.stderr.decode(errors="replace"))
+            raise StepError(
+                "Failed to run NodeSource setup script",
+                hint=e.stderr.decode(errors="replace"),
+            )
         self._sudo(ctx, ["apt-get", "install", "-y", "nodejs"])
         self._sudo(ctx, ["npm", "install", "-g", "yarn"])

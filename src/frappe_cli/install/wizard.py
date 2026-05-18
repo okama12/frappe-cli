@@ -8,7 +8,6 @@ from rich.live import Live
 from ..ui.panels import print_error, print_success
 from ..ui.prompts import collect_credentials_for_resume, collect_inputs
 from ..ui.steps import StepListRenderer
-from .context import InstallContext
 from .state import InstallState, clear_state, load_state, save_state, state_exists
 from .steps import ALL_STEPS
 from .steps.base import StepError
@@ -20,12 +19,18 @@ console = Console()
 @click.option("--resume", is_flag=True, help="Resume from the last failed step")
 @click.option("--dry-run", is_flag=True, help="Print commands without executing")
 @click.option("--debug", is_flag=True, help="Show full command output during execution")
-@click.option("--skip-ssl", is_flag=True, help="Skip SSL setup (for local/VM testing without a real domain)")
+@click.option(
+    "--skip-ssl",
+    is_flag=True,
+    help="Skip SSL setup (for local/VM testing without a real domain)",
+)
 def wizard(resume, dry_run, debug, skip_ssl):
     """Interactive production installer for Frappe."""
     if resume:
         if not state_exists():
-            console.print("[red]No previous install state found. Run 'frappe install wizard'.[/red]")
+            console.print(
+                "[red]No previous install state found. Run 'frappe install wizard'.[/red]"
+            )
             sys.exit(1)
         state = load_state()
         ctx = collect_credentials_for_resume(console, state, skip_ssl=skip_ssl)
@@ -35,7 +40,9 @@ def wizard(resume, dry_run, debug, skip_ssl):
         completed_steps = set()
 
     # Filter out SSL step when --skip-ssl is passed
-    active_steps = [s for s in ALL_STEPS if not (ctx.skip_ssl and s.name == "ssl_setup")]
+    active_steps = [
+        s for s in ALL_STEPS if not (ctx.skip_ssl and s.name == "ssl_setup")
+    ]
 
     renderer = StepListRenderer([s.description for s in active_steps])
     for step in active_steps:
@@ -61,16 +68,18 @@ def wizard(resume, dry_run, debug, skip_ssl):
                     renderer.mark_done(step.description)
 
                 completed_steps.add(step.name)
-                save_state(InstallState(
-                    bench_name=ctx.bench_name,
-                    site_name=ctx.site_name,
-                    frappe_branch=ctx.frappe_branch,
-                    app_url=ctx.app_url,
-                    app_branch=ctx.app_branch,
-                    ssl_email=ctx.ssl_email,
-                    ubuntu_version=ctx.ubuntu_version,
-                    completed_steps=list(completed_steps),
-                ))
+                save_state(
+                    InstallState(
+                        bench_name=ctx.bench_name,
+                        site_name=ctx.site_name,
+                        frappe_branch=ctx.frappe_branch,
+                        app_url=ctx.app_url,
+                        app_branch=ctx.app_branch,
+                        ssl_email=ctx.ssl_email,
+                        ubuntu_version=ctx.ubuntu_version,
+                        completed_steps=list(completed_steps),
+                    )
+                )
 
             except StepError as e:
                 renderer.mark_failed(step.description)

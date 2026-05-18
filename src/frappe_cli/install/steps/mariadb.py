@@ -2,7 +2,8 @@ import os
 import subprocess
 import tempfile
 from pathlib import Path
-from .base import InstallStep, StepError
+
+from .base import InstallStep
 
 FRAPPE_MARIADB_CNF = """\
 [mysqld]
@@ -21,11 +22,15 @@ class MariaDBInstallStep(InstallStep):
     CNF_PATH = "/etc/mysql/mariadb.conf.d/99-frappe.cnf"
 
     def check(self, ctx) -> bool:
-        result = subprocess.run(["mysqladmin", "status"], capture_output=True, text=True)
+        result = subprocess.run(
+            ["mysqladmin", "status"], capture_output=True, text=True
+        )
         return result.returncode == 0 and Path(self.CNF_PATH).exists()
 
     def run(self, ctx) -> None:
-        self._sudo(ctx, ["apt-get", "install", "-y", "mariadb-server", "mariadb-client"])
+        self._sudo(
+            ctx, ["apt-get", "install", "-y", "mariadb-server", "mariadb-client"]
+        )
         self._sudo_write(ctx, FRAPPE_MARIADB_CNF, self.CNF_PATH)
         self._sudo(ctx, ["systemctl", "enable", "mariadb"])
         self._sudo(ctx, ["systemctl", "restart", "mariadb"])
@@ -43,8 +48,16 @@ class MariaDBSecureStep(InstallStep):
         try:
             os.chmod(tmp_name, 0o600)
             result = subprocess.run(
-                ["mysql", f"--defaults-extra-file={tmp_name}", "-u", "root", "-e", "SELECT 1;"],
-                capture_output=True, text=True,
+                [
+                    "mysql",
+                    f"--defaults-extra-file={tmp_name}",
+                    "-u",
+                    "root",
+                    "-e",
+                    "SELECT 1;",
+                ],
+                capture_output=True,
+                text=True,
             )
             return result.returncode == 0
         finally:
