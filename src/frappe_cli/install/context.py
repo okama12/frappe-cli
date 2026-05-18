@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -9,9 +9,9 @@ class InstallContext:
     frappe_branch: str
     app_url: str
     app_branch: str
-    sudo_password: str
-    mariadb_root_password: str
-    admin_password: str
+    sudo_password: str = field(repr=False)
+    mariadb_root_password: str = field(repr=False)
+    admin_password: str = field(repr=False)
     ssl_email: str
     ubuntu_version: str
     dry_run: bool

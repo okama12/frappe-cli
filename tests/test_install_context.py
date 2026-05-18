@@ -49,3 +49,11 @@ def test_skip_ssl_defaults_false():
 def test_skip_ssl_can_be_set():
     ctx = make_ctx(skip_ssl=True)
     assert ctx.skip_ssl is True
+
+
+def test_passwords_hidden_from_repr():
+    ctx = make_ctx()
+    r = repr(ctx)
+    assert "secret" not in r
+    assert "dbpass" not in r
+    assert "adminpass" not in r
