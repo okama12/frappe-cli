@@ -28,6 +28,9 @@ class InstallStep(ABC):
         """Execute the step. Raise StepError on failure."""
         ...
 
+    def rollback(self, ctx: InstallContext) -> None:  # noqa: B027
+        """Best-effort cleanup called when this step fails. Override in subclasses."""
+
     def _local_bin_env(self) -> dict:
         env = os.environ.copy()
         local_bin = str(Path.home() / ".local" / "bin")
@@ -36,14 +39,61 @@ class InstallStep(ABC):
             env["PATH"] = f"{local_bin}:{env.get('PATH', '')}"
         return env
 
+    def _popen(
+        self,
+        ctx: InstallContext,
+        cmd: list[str],
+        input_bytes: bytes | None = None,
+        cwd: str | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Run cmd via Popen, streaming output to ctx.log_fn line by line."""
+        proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE if input_bytes else None,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            env=self._local_bin_env(),
+            cwd=cwd,
+        )
+        if input_bytes:
+            assert proc.stdin is not None
+            proc.stdin.write(input_bytes)
+            proc.stdin.close()
+
+        captured: list[str] = []
+        assert proc.stdout is not None
+        for raw in iter(proc.stdout.readline, b""):
+            line = raw.decode(errors="replace").rstrip()
+            captured.append(line)
+            if ctx.log_fn and line:
+                # Filter sudo password prompts
+                low = line.lower()
+                if "[sudo]" not in low and not low.startswith("password"):
+                    ctx.log_fn(line)
+
+        proc.wait()
+        if proc.returncode != 0:
+            hint = "\n".join(captured[-10:])
+            raise StepError(
+                f"Command failed: {' '.join(cmd[:3])}",
+                hint=hint,
+            )
+        return subprocess.CompletedProcess(cmd, proc.returncode, b"", b"")
+
     def _sudo(self, ctx: InstallContext, cmd: list[str]) -> subprocess.CompletedProcess:
         if ctx.dry_run:
+            if ctx.log_fn:
+                ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}")
             return subprocess.CompletedProcess(cmd, 0, b"", b"")
+        input_bytes = (ctx.sudo_password + "\n").encode()
         full_cmd = ["sudo", "-S"] + cmd
+        if ctx.log_fn:
+            ctx.log_fn(f"$ {' '.join(cmd)}")
+            return self._popen(ctx, full_cmd, input_bytes=input_bytes)
         try:
             return subprocess.run(
                 full_cmd,
-                input=(ctx.sudo_password + "\n").encode(),
+                input=input_bytes,
                 capture_output=True,
                 check=True,
             )
@@ -56,6 +106,8 @@ class InstallStep(ABC):
     def _sudo_write(self, ctx: InstallContext, content: str, path: str) -> None:
         """Write content to a privileged path via a temp file + sudo cp."""
         if ctx.dry_run:
+            if ctx.log_fn:
+                ctx.log_fn(f"[dry-run] write {path}")
             return
         with tempfile.NamedTemporaryFile(mode="w", delete=False, suffix=".tmp") as tmp:
             tmp.write(content)
@@ -85,7 +137,12 @@ class InstallStep(ABC):
     ) -> subprocess.CompletedProcess:
         """Run a command as current user (no sudo)."""
         if ctx.dry_run:
+            if ctx.log_fn:
+                ctx.log_fn(f"[dry-run] $ {' '.join(cmd)}")
             return subprocess.CompletedProcess(cmd, 0, "", "")
+        if ctx.log_fn:
+            ctx.log_fn(f"$ {' '.join(cmd)}")
+            return self._popen(ctx, cmd, cwd=cwd)
         try:
             return subprocess.run(
                 cmd,

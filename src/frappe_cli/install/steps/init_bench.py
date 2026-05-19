@@ -1,3 +1,4 @@
+import shutil
 from pathlib import Path
 
 from .base import InstallStep
@@ -22,3 +23,9 @@ class BenchInitStep(InstallStep):
             ],
             cwd=str(Path.home()),
         )
+
+    def rollback(self, ctx) -> None:
+        if ctx.bench_path.exists():
+            if ctx.log_fn:
+                ctx.log_fn(f"Rolling back: removing {ctx.bench_path}")
+            shutil.rmtree(ctx.bench_path, ignore_errors=True)

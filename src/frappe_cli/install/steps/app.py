@@ -1,3 +1,4 @@
+import shutil
 import subprocess
 
 from .base import InstallStep
@@ -26,6 +27,15 @@ class AppGetStep(InstallStep):
             ],
             cwd=str(ctx.bench_path),
         )
+
+    def rollback(self, ctx) -> None:
+        if not ctx.app_name:
+            return
+        app_path = ctx.bench_path / "apps" / ctx.app_name
+        if app_path.exists():
+            if ctx.log_fn:
+                ctx.log_fn(f"Rolling back: removing {app_path}")
+            shutil.rmtree(app_path, ignore_errors=True)
 
 
 class AppInstallStep(InstallStep):

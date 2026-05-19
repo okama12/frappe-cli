@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Callable, Optional
 
 
 @dataclass
@@ -17,6 +18,7 @@ class InstallContext:
     dry_run: bool
     debug: bool = False
     skip_ssl: bool = False
+    log_fn: Optional[Callable[[str], None]] = field(default=None, repr=False)
 
     @property
     def app_name(self) -> str:

@@ -1,5 +1,4 @@
 import sys
-import time
 
 import click
 from rich.console import Console
@@ -41,24 +40,25 @@ def wizard(resume, dry_run, debug, skip_ssl):
         ctx = collect_inputs(console, dry_run=dry_run, debug=debug, skip_ssl=skip_ssl)
         completed_steps = set()
 
-    # Filter out SSL step when --skip-ssl is passed
     active_steps = [
         s for s in ALL_STEPS if not (ctx.skip_ssl and s.name == "ssl_setup")
     ]
 
     renderer = StepListRenderer([s.description for s in active_steps])
+    ctx.log_fn = renderer.add_log
+
     for step in active_steps:
         if step.name in completed_steps:
             renderer.mark_skipped(step.description)
 
     failed = None
 
-    with Live(renderer.render(), console=console, refresh_per_second=4) as live:
+    with Live(renderer.render(), console=console, refresh_per_second=10) as live:
         for step in active_steps:
             if step.name in completed_steps:
                 continue
 
-            start = time.monotonic()
+            renderer.set_current(step.description)
             renderer.mark_running(step.description)
             live.update(renderer.render())
 
@@ -86,10 +86,13 @@ def wizard(resume, dry_run, debug, skip_ssl):
             except StepError as e:
                 renderer.mark_failed(step.description)
                 live.update(renderer.render())
+                try:
+                    step.rollback(ctx)
+                except Exception:
+                    pass
                 failed = (step, e)
                 break
 
-            renderer.update_elapsed(step.description, time.monotonic() - start)
             live.update(renderer.render())
 
     if failed:

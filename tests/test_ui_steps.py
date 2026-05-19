@@ -4,8 +4,7 @@ from frappe_cli.ui.steps import StepListRenderer, StepStatus
 
 def test_initial_state_all_pending():
     r = StepListRenderer(["Step A", "Step B"])
-    rendered = r.render()
-    assert "○" in str(rendered)
+    assert all(s.status == StepStatus.PENDING for s in r._steps)
 
 
 def test_mark_running():
