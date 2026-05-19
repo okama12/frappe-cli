@@ -20,6 +20,8 @@ class InstallContext:
 
     @property
     def app_name(self) -> str:
+        if not self.app_url:
+            return ""
         return self.app_url.rstrip("/").split("/")[-1].removesuffix(".git")
 
     @property

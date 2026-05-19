@@ -29,8 +29,8 @@ def collect_inputs(
     frappe_branch = Prompt.ask("  Frappe branch", default="version-15")
 
     console.print("\n  [bold]── App ──[/bold]")
-    app_url = Prompt.ask("  App GitHub URL")
-    app_branch = Prompt.ask("  App branch", default=frappe_branch)
+    app_url = Prompt.ask("  App GitHub URL (leave blank for Frappe only)", default="")
+    app_branch = Prompt.ask("  App branch", default=frappe_branch) if app_url else frappe_branch
 
     console.print("\n  [bold]── Credentials ──[/bold]")
     sudo_password = Prompt.ask("  Sudo (VPS admin) password", password=True)
@@ -38,7 +38,9 @@ def collect_inputs(
         "  MariaDB root password (will be set)", password=True
     )
     admin_password = Prompt.ask("  Frappe site admin password", password=True)
-    ssl_email = Prompt.ask("  SSL email (Let's Encrypt)")
+    ssl_email = (
+        Prompt.ask("  SSL email (Let's Encrypt)") if not skip_ssl else ""
+    )
 
     ubuntu_version = _detect_ubuntu_version()
     console.print(f"\n  [dim]Detected Ubuntu {ubuntu_version}[/dim]\n")

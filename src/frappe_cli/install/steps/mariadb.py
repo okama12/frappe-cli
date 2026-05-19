@@ -22,10 +22,13 @@ class MariaDBInstallStep(InstallStep):
     CNF_PATH = "/etc/mysql/mariadb.conf.d/99-frappe.cnf"
 
     def check(self, ctx) -> bool:
-        result = subprocess.run(
-            ["mysqladmin", "status"], capture_output=True, text=True
-        )
-        return result.returncode == 0 and Path(self.CNF_PATH).exists()
+        try:
+            result = subprocess.run(
+                ["mysqladmin", "status"], capture_output=True, text=True
+            )
+            return result.returncode == 0 and Path(self.CNF_PATH).exists()
+        except FileNotFoundError:
+            return False
 
     def run(self, ctx) -> None:
         self._sudo(
@@ -60,6 +63,8 @@ class MariaDBSecureStep(InstallStep):
                 text=True,
             )
             return result.returncode == 0
+        except FileNotFoundError:
+            return False
         finally:
             os.unlink(tmp_name)
 

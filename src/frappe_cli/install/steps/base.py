@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 from abc import ABC, abstractmethod
+from pathlib import Path
 
 from frappe_cli.install.context import InstallContext
 
@@ -26,6 +27,14 @@ class InstallStep(ABC):
     def run(self, ctx: InstallContext) -> None:
         """Execute the step. Raise StepError on failure."""
         ...
+
+    def _local_bin_env(self) -> dict:
+        env = os.environ.copy()
+        local_bin = str(Path.home() / ".local" / "bin")
+        paths = env.get("PATH", "").split(":")
+        if local_bin not in paths:
+            env["PATH"] = f"{local_bin}:{env.get('PATH', '')}"
+        return env
 
     def _sudo(self, ctx: InstallContext, cmd: list[str]) -> subprocess.CompletedProcess:
         if ctx.dry_run:
@@ -84,6 +93,7 @@ class InstallStep(ABC):
                 text=True,
                 check=True,
                 cwd=cwd,
+                env=self._local_bin_env(),
             )
         except subprocess.CalledProcessError as e:
             raise StepError(

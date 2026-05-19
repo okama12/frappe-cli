@@ -8,10 +8,13 @@ class WkhtmltopdfStep(InstallStep):
     description = "Install wkhtmltopdf"
 
     def check(self, ctx) -> bool:
-        result = subprocess.run(
-            ["wkhtmltopdf", "--version"], capture_output=True, text=True
-        )
-        return result.returncode == 0
+        try:
+            result = subprocess.run(
+                ["wkhtmltopdf", "--version"], capture_output=True, text=True
+            )
+            return result.returncode == 0
+        except FileNotFoundError:
+            return False
 
     def run(self, ctx) -> None:
         packages = [

@@ -8,8 +8,11 @@ class NodeJSStep(InstallStep):
     description = "Install Node.js + Yarn"
 
     def check(self, ctx) -> bool:
-        result = subprocess.run(["node", "--version"], capture_output=True, text=True)
-        return result.returncode == 0
+        try:
+            result = subprocess.run(["node", "--version"], capture_output=True, text=True)
+            return result.returncode == 0
+        except FileNotFoundError:
+            return False
 
     def run(self, ctx) -> None:
         if ctx.dry_run:
