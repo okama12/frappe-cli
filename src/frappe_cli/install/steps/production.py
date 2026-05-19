@@ -1,7 +1,5 @@
 import getpass
-import os
 import subprocess
-import tempfile
 from pathlib import Path
 
 from .base import InstallStep, StepError
@@ -17,26 +15,22 @@ class ProductionSetupStep(InstallStep):
 
     def run(self, ctx) -> None:
         if ctx.dry_run:
+            if ctx.log_fn:
+                ctx.log_fn("[dry-run] $ bench setup production <user> --yes")
             return
         current_user = getpass.getuser()
-        askpass = tempfile.NamedTemporaryFile(mode="w", suffix=".sh", delete=False)
-        try:
-            askpass.write(f"#!/bin/sh\necho '{ctx.sudo_password}'\n")
-            askpass.close()
-            os.chmod(askpass.name, 0o700)
-            env = os.environ.copy()
-            env["SUDO_ASKPASS"] = askpass.name
-            result = subprocess.run(
-                ["bench", "setup", "production", current_user, "--yes"],
-                cwd=str(ctx.bench_path),
-                capture_output=True,
-                text=True,
-                env=env,
-            )
-            if result.returncode != 0:
-                raise StepError("bench setup production failed", hint=result.stderr)
-        finally:
-            os.unlink(askpass.name)
+        # Warm the sudo credential cache. bench setup production calls sudo
+        # internally without -S/-A, so it needs a cached session, not stdin.
+        self._sudo(ctx, ["-v"])
+        result = subprocess.run(
+            ["bench", "setup", "production", current_user, "--yes"],
+            cwd=str(ctx.bench_path),
+            capture_output=True,
+            text=True,
+            env=self._local_bin_env(),
+        )
+        if result.returncode != 0:
+            raise StepError("bench setup production failed", hint=result.stderr)
 
 
 class BenchRestartStep(InstallStep):
