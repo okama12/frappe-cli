@@ -9,7 +9,9 @@ class RedisStep(InstallStep):
 
     def check(self, ctx) -> bool:
         try:
-            result = subprocess.run(["redis-cli", "ping"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["redis-cli", "ping"], capture_output=True, text=True
+            )
             return result.returncode == 0 and "PONG" in result.stdout
         except FileNotFoundError:
             return False

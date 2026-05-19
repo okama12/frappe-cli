@@ -9,7 +9,9 @@ class NodeJSStep(InstallStep):
 
     def check(self, ctx) -> bool:
         try:
-            result = subprocess.run(["node", "--version"], capture_output=True, text=True)
+            result = subprocess.run(
+                ["node", "--version"], capture_output=True, text=True
+            )
             return result.returncode == 0
         except FileNotFoundError:
             return False
