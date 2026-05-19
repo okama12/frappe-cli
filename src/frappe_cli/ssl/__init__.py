@@ -2,6 +2,7 @@
 
 import click
 
+from .list_certs import list_certs
 from .setup import setup
 
 
@@ -12,3 +13,4 @@ def ssl():
 
 
 ssl.add_command(setup)
+ssl.add_command(list_certs)

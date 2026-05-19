@@ -2,6 +2,7 @@
 from unittest.mock import MagicMock, patch
 
 from click.testing import CliRunner
+
 from frappe_cli.cli import cli
 
 

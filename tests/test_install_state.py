@@ -1,4 +1,5 @@
 import pytest
+
 from frappe_cli.install.state import (
     InstallState,
     clear_state,

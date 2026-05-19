@@ -14,6 +14,7 @@ from frappe_cli.rollback import rollback
 from frappe_cli.service import service
 from frappe_cli.site import site
 from frappe_cli.ssl import ssl
+from frappe_cli.step import step
 
 __version__ = importlib.metadata.version("frappe-cli")
 
@@ -38,6 +39,50 @@ def cli(ctx, config):
 def version():
     """Show the Frappe CLI version."""
     click.echo(f"Frappe CLI version {__version__}")
+
+
+@cli.command()
+def about():
+    """Show project info, author credits, and links."""
+    from rich import box
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.text import Text
+
+    console = Console()
+    content = Text()
+    content.append("  Frappe CLI  ", style="bold green")
+    content.append(f"v{__version__}\n", style="bold")
+    content.append(
+        "  Production-ready installer + operator toolkit for Frappe / ERPNext\n\n",
+        style="dim",
+    )
+
+    content.append("  Author     ", style="dim")
+    content.append("Rashidi Okama\n", style="bold cyan")
+    content.append("  Location   ", style="dim")
+    content.append("Tanzania\n", style="white")
+    content.append("  Website    ", style="dim")
+    content.append("https://rashidiokama.com\n", style="cyan")
+    content.append("  GitHub     ", style="dim")
+    content.append("https://github.com/okama12\n\n", style="cyan")
+
+    content.append("  Project    ", style="dim")
+    content.append("https://github.com/okama12/frappe-cli\n", style="cyan")
+    content.append("  PyPI       ", style="dim")
+    content.append("https://pypi.org/project/frappe-cli/\n", style="cyan")
+    content.append("  License    ", style="dim")
+    content.append("MIT\n\n", style="white")
+
+    content.append(
+        "  Built to make my own day-to-day Frappe work easier.\n", style="italic"
+    )
+    content.append("  If it saves you time too, please ", style="dim")
+    content.append("star the repo", style="bold yellow")
+    content.append(" — it really helps.", style="dim")
+    console.print(
+        Panel(content, box=box.ROUNDED, padding=(1, 2), title="[bold]About[/bold]")
+    )
 
 
 @cli.command()
@@ -111,6 +156,7 @@ def check():
 cli.add_command(install)
 cli.add_command(site)
 cli.add_command(ssl)
+cli.add_command(step)
 cli.add_command(backup)
 cli.add_command(maintenance)
 cli.add_command(service)

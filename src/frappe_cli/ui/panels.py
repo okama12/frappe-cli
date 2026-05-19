@@ -14,7 +14,15 @@ def print_header(console: Console) -> None:
     content = Text()
     content.append("  Frappe CLI  ", style="bold green")
     content.append(f"v{version}\n", style="bold")
-    content.append("  Production Server Installer", style="dim")
+    content.append("  Production Server Installer\n", style="dim")
+    content.append("\n")
+    content.append("  Built by ", style="dim")
+    content.append("Rashidi Okama", style="bold cyan")
+    content.append("  ·  Tanzania\n", style="dim")
+    content.append("  ", style="dim")
+    content.append("github.com/okama12", style="cyan")
+    content.append("   ·   ", style="dim")
+    content.append("rashidiokama.com", style="cyan")
     console.print(Panel(content, box=box.ROUNDED, padding=(1, 2)))
 
 
@@ -53,6 +61,11 @@ def print_success(console: Console, ctx) -> None:
         console.print(
             "    [cyan]frappe ssl setup[/cyan]        — renew SSL certificate\n"
         )
+    console.print(
+        "  [dim]Made with care by Rashidi Okama in Tanzania · "
+        "if this saved you time, star the repo:[/dim] "
+        "[cyan]github.com/okama12/frappe-cli[/cyan]\n"
+    )
 
 
 def print_error(

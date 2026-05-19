@@ -12,11 +12,32 @@ class SSLSetupStep(InstallStep):
         return Path(f"/etc/letsencrypt/live/{ctx.site_name}/fullchain.pem")
 
     def check(self, ctx) -> bool:
+        """Return True only if a cert already exists for THIS site.
+
+        `/etc/letsencrypt/live/` is mode 700 root-owned as soon as any cert
+        is issued, so a non-root `Path.exists()` raises `PermissionError`.
+        The previous implementation caught that and returned True, which
+        falsely skipped SSL on multi-bench servers (test5-bench was
+        affected — install marked SSL as `[already done]` while no cert
+        existed for it). Use `sudo test -f` for an authoritative answer.
+        """
+        cert_path = self._cert_path(ctx)
         try:
-            return self._cert_path(ctx).exists()
-        except PermissionError:
-            # Root-owned path exists but isn't readable — cert is already installed
-            return True
+            return cert_path.exists()
+        except (PermissionError, OSError):
+            pass
+        if not ctx.sudo_password:
+            return False
+        try:
+            result = subprocess.run(
+                ["sudo", "-S", "test", "-f", str(cert_path)],
+                input=(ctx.sudo_password + "\n").encode(),
+                capture_output=True,
+                timeout=15,
+            )
+            return result.returncode == 0
+        except (OSError, subprocess.TimeoutExpired):
+            return False
 
     def run(self, ctx) -> None:
         # Ensure certbot is available (bench setup lets-encrypt shells out to it).

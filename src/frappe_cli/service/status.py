@@ -158,7 +158,7 @@ def status(bench_name, site_name):
                 console.print(f"[green]Site:[/green] {site_name} exists")
                 try:
                     apps = shell_runner.run(
-                        ["bench", "list-apps", "--site", site_name],
+                        ["bench", "--site", site_name, "list-apps"],
                         description="List installed apps",
                         check=False,
                     )

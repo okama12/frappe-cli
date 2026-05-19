@@ -499,6 +499,51 @@ class TestSSLSetupStep:
         with patch.object(step, "_cert_path", return_value=cert_dir / "fullchain.pem"):
             assert step.check(make_ctx()) is True
 
+    def test_check_false_when_permission_error_and_sudo_test_fails(self):
+        """Multi-bench server: /etc/letsencrypt/live/ is 700 root-owned, so
+        Path.exists() raises PermissionError. We MUST verify via sudo test -f
+        — previously the wizard wrongly returned True here and skipped SSL
+        (test5-bench symptom: SSL step said `[already done]` and never ran).
+        """
+        from frappe_cli.install.steps.ssl import SSLSetupStep
+
+        step = SSLSetupStep()
+        with (
+            patch.object(
+                step, "_cert_path", side_effect=PermissionError("denied")
+            ) as _cert,
+            patch("subprocess.run") as mock_run,
+        ):
+            # _cert_path is called inside check(); make it raise once via the
+            # `cert_path.exists()` call by returning a path whose .exists()
+            # raises. Easier: stub _cert_path to return a real Path then patch
+            # its .exists.
+            _cert.side_effect = None
+            fake_cert = MagicMock()
+            fake_cert.exists.side_effect = PermissionError("denied")
+            fake_cert.__str__ = lambda self: "/etc/letsencrypt/live/x/fullchain.pem"
+            _cert.return_value = fake_cert
+            mock_run.return_value = MagicMock(returncode=1, stdout=b"", stderr=b"")
+            assert step.check(make_ctx()) is False
+        # And sudo test -f was attempted
+        invoked = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
+        assert "test" in invoked and "-f" in invoked
+
+    def test_check_true_when_permission_error_but_sudo_test_succeeds(self):
+        """Same scenario but the cert DOES exist (e.g. after a manual run)."""
+        from frappe_cli.install.steps.ssl import SSLSetupStep
+
+        step = SSLSetupStep()
+        fake_cert = MagicMock()
+        fake_cert.exists.side_effect = PermissionError("denied")
+        fake_cert.__str__ = lambda self: "/etc/letsencrypt/live/x/fullchain.pem"
+        with (
+            patch.object(step, "_cert_path", return_value=fake_cert),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+            assert step.check(make_ctx()) is True
+
     def test_run_calls_bench_lets_encrypt(self):
         from frappe_cli.install.steps.ssl import SSLSetupStep
 

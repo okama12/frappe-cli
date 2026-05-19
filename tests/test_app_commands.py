@@ -1,5 +1,6 @@
-import frappe_cli.cli as cli
 from click.testing import CliRunner
+
+import frappe_cli.cli as cli
 
 
 def test_app_help():
