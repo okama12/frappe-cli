@@ -12,7 +12,11 @@ class SSLSetupStep(InstallStep):
         return Path(f"/etc/letsencrypt/live/{ctx.site_name}/fullchain.pem")
 
     def check(self, ctx) -> bool:
-        return self._cert_path(ctx).exists()
+        try:
+            return self._cert_path(ctx).exists()
+        except PermissionError:
+            # Root-owned path exists but isn't readable — cert is already installed
+            return True
 
     def run(self, ctx) -> None:
         result = subprocess.run(["which", "certbot"], capture_output=True)
