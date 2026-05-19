@@ -19,13 +19,24 @@ def print_header(console: Console) -> None:
 
 
 def print_success(console: Console, ctx) -> None:
+    protocol = "http" if ctx.skip_ssl else "https"
+    ssl_line = (
+        "  [dim]SSL[/dim]      Let's Encrypt — auto-renews"
+        if not ctx.skip_ssl
+        else "  [dim]SSL[/dim]      Not configured (--skip-ssl)"
+    )
+    app_line = (
+        f"  [dim]App[/dim]      {ctx.app_name}  ({ctx.app_branch})"
+        if ctx.app_url
+        else "  [dim]App[/dim]      Frappe only"
+    )
     lines = "\n".join(
         [
-            f"[bold green]✓  Frappe is live at https://{ctx.site_name}[/bold green]\n",
+            f"[bold green]✓  Frappe is live at {protocol}://{ctx.site_name}[/bold green]\n",
             f"  [dim]Bench[/dim]    ~/{ctx.bench_name}",
             f"  [dim]Site[/dim]     {ctx.site_name}",
-            f"  [dim]App[/dim]      {ctx.app_name}  ({ctx.app_branch})",
-            "  [dim]SSL[/dim]      Let's Encrypt — auto-renews",
+            app_line,
+            ssl_line,
         ]
     )
     console.print(
@@ -34,7 +45,14 @@ def print_success(console: Console, ctx) -> None:
     console.print("\n  [dim]Next steps:[/dim]")
     console.print("    [cyan]frappe service status[/cyan]   — check running services")
     console.print("    [cyan]frappe site backup[/cyan]      — take a manual backup")
-    console.print("    [cyan]frappe ssl setup[/cyan]        — renew SSL certificate\n")
+    if ctx.skip_ssl:
+        console.print(
+            "    [cyan]frappe install wizard[/cyan]   — re-run without --skip-ssl to add SSL\n"
+        )
+    else:
+        console.print(
+            "    [cyan]frappe ssl setup[/cyan]        — renew SSL certificate\n"
+        )
 
 
 def print_error(
