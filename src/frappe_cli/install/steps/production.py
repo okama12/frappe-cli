@@ -1,8 +1,7 @@
 import getpass
-import subprocess
 from pathlib import Path
 
-from .base import InstallStep, StepError
+from .base import InstallStep
 
 
 class ProductionSetupStep(InstallStep):
@@ -19,18 +18,15 @@ class ProductionSetupStep(InstallStep):
                 ctx.log_fn("[dry-run] $ bench setup production <user> --yes")
             return
         current_user = getpass.getuser()
-        # Warm the sudo credential cache. bench setup production calls sudo
-        # internally without -S/-A, so it needs a cached session, not stdin.
-        self._sudo(ctx, ["-v"])
-        result = subprocess.run(
-            ["bench", "setup", "production", current_user, "--yes"],
+        # Use the absolute bench path so sudo can find it without PATH
+        # manipulation. Running bench under sudo means its internal sudo calls
+        # are already root and never prompt for a password.
+        bench_bin = str(Path.home() / ".local" / "bin" / "bench")
+        self._sudo(
+            ctx,
+            [bench_bin, "setup", "production", current_user, "--yes"],
             cwd=str(ctx.bench_path),
-            capture_output=True,
-            text=True,
-            env=self._local_bin_env(),
         )
-        if result.returncode != 0:
-            raise StepError("bench setup production failed", hint=result.stderr)
 
 
 class BenchRestartStep(InstallStep):

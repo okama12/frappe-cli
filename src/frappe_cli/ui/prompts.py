@@ -77,10 +77,26 @@ def collect_credentials_for_resume(
         f"  Site: [cyan]{state.site_name}[/cyan]  Bench: [cyan]{state.bench_name}[/cyan]\n"
     )
 
+    done = set(state.completed_steps)
+
     console.print("  [bold]── Re-enter credentials ──[/bold]")
+
+    # sudo is always needed — remaining steps (production, SSL, restart) all use it
     sudo_password = Prompt.ask("  Sudo (VPS admin) password", password=True)
-    mariadb_root_password = Prompt.ask("  MariaDB root password", password=True)
-    admin_password = Prompt.ask("  Frappe site admin password", password=True)
+
+    # Only needed if MariaDB hasn't been secured yet
+    mariadb_root_password = (
+        ""
+        if "mariadb_secure" in done
+        else Prompt.ask("  MariaDB root password", password=True)
+    )
+
+    # Only needed if the site hasn't been created yet
+    admin_password = (
+        ""
+        if "site_create" in done
+        else Prompt.ask("  Frappe site admin password", password=True)
+    )
 
     return InstallContext(
         bench_name=state.bench_name,

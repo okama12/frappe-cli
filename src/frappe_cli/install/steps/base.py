@@ -81,7 +81,9 @@ class InstallStep(ABC):
             )
         return subprocess.CompletedProcess(cmd, proc.returncode, b"", b"")
 
-    def _sudo(self, ctx: InstallContext, cmd: list[str]) -> subprocess.CompletedProcess:
+    def _sudo(
+        self, ctx: InstallContext, cmd: list[str], cwd: str | None = None
+    ) -> subprocess.CompletedProcess:
         if ctx.dry_run:
             if ctx.log_fn:
                 ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}")
@@ -90,13 +92,14 @@ class InstallStep(ABC):
         full_cmd = ["sudo", "-S"] + cmd
         if ctx.log_fn:
             ctx.log_fn(f"$ {' '.join(cmd)}")
-            return self._popen(ctx, full_cmd, input_bytes=input_bytes)
+            return self._popen(ctx, full_cmd, input_bytes=input_bytes, cwd=cwd)
         try:
             return subprocess.run(
                 full_cmd,
                 input=input_bytes,
                 capture_output=True,
                 check=True,
+                cwd=cwd,
             )
         except subprocess.CalledProcessError as e:
             raise StepError(
