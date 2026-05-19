@@ -130,7 +130,9 @@ class StepListRenderer:
         title = (
             f"[bold cyan]▶  {self._current}[/bold cyan]" if self._current else "Output"
         )
-        log_panel = Panel(log_lines, title=title, border_style="dim", padding=(0, 1), expand=False)
+        log_panel = Panel(
+            log_lines, title=title, border_style="dim", padding=(0, 1), expand=False
+        )
 
         return Group(steps_panel, log_panel)
 
