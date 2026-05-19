@@ -19,23 +19,32 @@ class SSLSetupStep(InstallStep):
             return True
 
     def run(self, ctx) -> None:
+        # Ensure certbot is available (bench setup lets-encrypt shells out to it).
         result = subprocess.run(["which", "certbot"], capture_output=True)
         if result.returncode != 0:
             self._sudo(
                 ctx, ["apt-get", "install", "-y", "certbot", "python3-certbot-nginx"]
             )
-        self._sudo(
+
+        # Use `bench setup lets-encrypt <site>` (not raw `certbot --nginx`) so
+        # bench rewrites this bench's nginx config with the SSL block and adds
+        # a monthly renewal cron. Mirrors the manual runbook (Step 6.1).
+        #
+        # The command prompts twice; both answered 'y':
+        #   1) "Running this will stop the nginx service temporarily..."
+        #   2) "nginx.conf already exists and this will overwrite it..."
+        bench_bin = str(Path.home() / ".local" / "bin" / "bench")
+        bench_path = self._local_bin_env()["PATH"]
+        self._sudo_with_stdin(
             ctx,
             [
-                "certbot",
-                "--nginx",
-                "-d",
+                "env",
+                f"PATH={bench_path}",
+                bench_bin,
+                "setup",
+                "lets-encrypt",
                 ctx.site_name,
-                "--non-interactive",
-                "--agree-tos",
-                "-m",
-                ctx.ssl_email,
             ],
+            stdin=b"y\ny\n",
+            cwd=str(ctx.bench_path),
         )
-        self._sudo(ctx, ["systemctl", "enable", "certbot.timer"])
-        self._sudo(ctx, ["systemctl", "start", "certbot.timer"])

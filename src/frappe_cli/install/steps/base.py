@@ -111,6 +111,29 @@ class InstallStep(ABC):
                 hint=e.stderr.decode(errors="replace"),
             )
 
+    def _sudo_with_stdin(
+        self,
+        ctx: InstallContext,
+        cmd: list[str],
+        stdin: bytes,
+        cwd: str | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Run a sudo command and feed extra bytes on stdin AFTER the sudo password.
+
+        Used for commands like `bench setup lets-encrypt <site>` that prompt
+        interactively (e.g. "stop nginx? [y/N]", "overwrite nginx.conf? [y/N]").
+        We send the sudo password first, then the scripted answers.
+        """
+        if ctx.dry_run:
+            if ctx.log_fn:
+                ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}")
+            return subprocess.CompletedProcess(cmd, 0, b"", b"")
+        full_cmd = ["sudo", "-S"] + cmd
+        input_bytes = (ctx.sudo_password + "\n").encode() + stdin
+        if ctx.log_fn:
+            ctx.log_fn(f"$ {' '.join(cmd)}")
+        return self._popen(ctx, full_cmd, input_bytes=input_bytes, cwd=cwd)
+
     def _sudo_write(self, ctx: InstallContext, content: str, path: str) -> None:
         """Write content to a privileged path via a temp file + sudo cp."""
         if ctx.dry_run:

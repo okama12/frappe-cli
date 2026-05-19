@@ -53,7 +53,10 @@ class AppInstallStep(InstallStep):
                 cwd=str(ctx.bench_path),
                 env=self._local_bin_env(),
             )
-            return ctx.app_name in result.stdout.splitlines()
+            # `bench --site <site> list-apps` returns lines like
+            # `erpnext 15.108.1 version-15`, so a `.splitlines()` membership
+            # check never matched a bare app name. Use substring search.
+            return ctx.app_name in result.stdout
         except FileNotFoundError:
             return False
 

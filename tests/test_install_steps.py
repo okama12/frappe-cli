@@ -268,8 +268,78 @@ class TestBenchInstallStep:
         from frappe_cli.install.steps.bench import BenchInstallStep
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout="5.29.1\n", stderr=""
+            )
             assert BenchInstallStep().check(make_ctx()) is True
+
+    def test_check_false_when_bench_completely_missing(self):
+        """Non-fresh VPS without bench anywhere -> need to install."""
+        from frappe_cli.install.steps.bench import BenchInstallStep
+
+        with (
+            patch("subprocess.run", side_effect=FileNotFoundError()),
+            patch("pathlib.Path.exists", return_value=False),
+        ):
+            assert BenchInstallStep().check(make_ctx()) is False
+
+    def test_check_true_via_fallback_path_when_not_on_PATH(self, tmp_path):
+        """Bench installed via pip into /usr/local/bin but `bench` not on PATH
+        (sudo env etc.). check() must still detect it and skip install."""
+        from frappe_cli.install.steps.bench import BenchInstallStep
+
+        fake_bench = tmp_path / "bench"
+        fake_bench.write_text("#!/bin/sh\necho 5.29.1")
+        fake_bench.chmod(0o755)
+
+        call_log = []
+
+        def fake_run(cmd, *args, **kwargs):
+            call_log.append(cmd)
+            # First call: `bench --version` from PATH -> not found
+            if cmd == ["bench", "--version"]:
+                raise FileNotFoundError()
+            # Subsequent fallback calls use the absolute path
+            return MagicMock(returncode=0, stdout="5.29.1\n", stderr="")
+
+        step = BenchInstallStep()
+        with (
+            patch("subprocess.run", side_effect=fake_run),
+            patch.object(
+                BenchInstallStep,
+                "_CANDIDATE_PATHS",
+                (fake_bench,),
+            ),
+        ):
+            assert step.check(make_ctx()) is True
+
+    def test_check_logs_existing_benches(self, tmp_path):
+        """A non-fresh VPS with existing benches should announce them so the
+        user sees the wizard is sharing the host."""
+        from frappe_cli.install.steps.bench import BenchInstallStep
+
+        (tmp_path / "test2-bench" / "apps" / "frappe").mkdir(parents=True)
+        (tmp_path / "test2-bench" / "sites").mkdir()
+        (tmp_path / "test3-bench" / "apps" / "frappe").mkdir(parents=True)
+        (tmp_path / "test3-bench" / "sites").mkdir()
+
+        logs: list[str] = []
+        ctx = make_ctx()
+        ctx.log_fn = logs.append
+
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("pathlib.Path.home", return_value=tmp_path),
+        ):
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout="5.29.1\n", stderr=""
+            )
+            assert BenchInstallStep().check(ctx) is True
+
+        joined = "\n".join(logs)
+        assert "Found existing bench" in joined
+        assert "test2-bench" in joined
+        assert "test3-bench" in joined
 
     def test_run_calls_uv_tool_install(self):
         from frappe_cli.install.steps.bench import BenchInstallStep
@@ -301,6 +371,22 @@ class TestBenchInitStep:
         ctx = make_ctx(bench_name="nonexistent-bench")
         with patch("pathlib.Path.home", return_value=tmp_path):
             assert BenchInitStep().check(ctx) is False
+
+    def test_check_announces_existing_bench_dir(self, tmp_path):
+        """When the target bench is already initialised, log it so the user
+        knows the wizard skipped re-init (non-fresh VPS scenario)."""
+        from frappe_cli.install.steps.init_bench import BenchInitStep
+
+        bench_dir = tmp_path / "test4-bench"
+        (bench_dir / "apps" / "frappe").mkdir(parents=True)
+
+        logs: list[str] = []
+        ctx = make_ctx(bench_name="test4-bench")
+        ctx.log_fn = logs.append
+
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            assert BenchInitStep().check(ctx) is True
+        assert any("test4-bench" in line for line in logs)
 
     def test_run_calls_bench_init(self):
         from frappe_cli.install.steps.init_bench import BenchInitStep
@@ -413,16 +499,187 @@ class TestSSLSetupStep:
         with patch.object(step, "_cert_path", return_value=cert_dir / "fullchain.pem"):
             assert step.check(make_ctx()) is True
 
-    def test_run_calls_certbot(self):
+    def test_run_calls_bench_lets_encrypt(self):
         from frappe_cli.install.steps.ssl import SSLSetupStep
 
-        with patch("subprocess.run") as mock_run:
+        step = SSLSetupStep()
+        with (
+            patch("subprocess.run") as mock_run,
+            patch.object(step, "_sudo_with_stdin") as mock_sudo_stdin,
+        ):
+            # `which certbot` returns 0 -> skip apt-get install
             mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
-            SSLSetupStep().run(make_ctx())
+            step.run(make_ctx())
+
+        assert mock_sudo_stdin.called
+        invoked_cmd = mock_sudo_stdin.call_args.args[1]
+        joined = " ".join(invoked_cmd)
+        assert "setup" in joined and "lets-encrypt" in joined
+        assert "mysite.com" in joined
+        # Two interactive prompts are answered "y"
+        assert mock_sudo_stdin.call_args.kwargs.get("stdin") == b"y\ny\n"
+
+
+# ── DnsMultitenantStep ────────────────────────────────────────────────────────
+
+
+class TestDnsMultitenantStep:
+    def test_check_true_when_dns_multitenant_set(self, tmp_path):
+        from frappe_cli.install.steps.dns_multitenant import DnsMultitenantStep
+
+        bench_dir = tmp_path / "mybenches" / "frappe-bench"
+        sites_dir = bench_dir / "sites"
+        sites_dir.mkdir(parents=True)
+        (sites_dir / "common_site_config.json").write_text('{"dns_multitenant": true}')
+        ctx = make_ctx()
+        with patch("pathlib.Path.home", return_value=tmp_path / "mybenches"):
+            assert DnsMultitenantStep().check(ctx) is True
+
+    def test_check_false_when_dns_multitenant_missing(self, tmp_path):
+        from frappe_cli.install.steps.dns_multitenant import DnsMultitenantStep
+
+        bench_dir = tmp_path / "mybenches" / "frappe-bench"
+        sites_dir = bench_dir / "sites"
+        sites_dir.mkdir(parents=True)
+        (sites_dir / "common_site_config.json").write_text("{}")
+        ctx = make_ctx()
+        with patch("pathlib.Path.home", return_value=tmp_path / "mybenches"):
+            assert DnsMultitenantStep().check(ctx) is False
+
+    def test_check_false_when_config_missing(self, tmp_path):
+        from frappe_cli.install.steps.dns_multitenant import DnsMultitenantStep
+
+        ctx = make_ctx()
+        with patch("pathlib.Path.home", return_value=tmp_path):
+            assert DnsMultitenantStep().check(ctx) is False
+
+    def test_run_calls_bench_config_dns_multitenant_on(self):
+        from frappe_cli.install.steps.dns_multitenant import DnsMultitenantStep
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            DnsMultitenantStep().run(make_ctx())
         all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
-        assert "certbot" in all_args
-        assert "mysite.com" in all_args
-        assert "admin@mysite.com" in all_args
+        assert "config" in all_args
+        assert "dns_multitenant" in all_args
+        assert "on" in all_args
+
+
+# ── ProductionSetupStep — self-heal + verification ───────────────────────────
+
+
+class TestProductionSetupStepVerify:
+    def test_check_requires_both_nginx_and_supervisor(self):
+        from frappe_cli.install.steps.production import ProductionSetupStep
+
+        step = ProductionSetupStep()
+        ctx = make_ctx(bench_name="frappe-bench")
+
+        # Only nginx exists -> NOT done yet (supervisor missing == still partial)
+        with patch("frappe_cli.install.steps.production.Path") as mock_path:
+
+            def side_effect(path):
+                mock = MagicMock()
+                mock.exists.return_value = "nginx" in str(path)
+                return mock
+
+            mock_path.side_effect = side_effect
+            assert step.check(ctx) is False
+
+        # Both exist -> done
+        with patch("frappe_cli.install.steps.production.Path") as mock_path:
+            mock = MagicMock()
+            mock.exists.return_value = True
+            mock_path.return_value = mock
+            assert step.check(ctx) is True
+
+    def test_verify_supervisor_running_returns_when_all_running(self):
+        from frappe_cli.install.steps.production import ProductionSetupStep
+
+        ctx = make_ctx(bench_name="test3-bench")
+        status_output = (
+            "test3-bench-redis:test3-bench-redis-cache  RUNNING  pid 1, uptime 0:01\n"
+            "test3-bench-web:test3-bench-frappe-web     RUNNING  pid 2, uptime 0:01\n"
+        ).encode()
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout=status_output, stderr=b""
+            )
+            ProductionSetupStep()._verify_supervisor_running(ctx, timeout=1)
+
+    def test_verify_supervisor_running_raises_on_timeout(self):
+        from frappe_cli.install.steps.base import StepError
+        from frappe_cli.install.steps.production import ProductionSetupStep
+
+        ctx = make_ctx(bench_name="test3-bench")
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("time.sleep"),
+        ):
+            # No matching bench lines at all -> never satisfied
+            mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+            try:
+                ProductionSetupStep()._verify_supervisor_running(ctx, timeout=1)
+            except StepError as e:
+                assert "test3-bench" in e.message
+            else:
+                raise AssertionError("StepError not raised")
+
+    def test_verify_supervisor_running_raises_when_not_running(self):
+        from frappe_cli.install.steps.base import StepError
+        from frappe_cli.install.steps.production import ProductionSetupStep
+
+        ctx = make_ctx(bench_name="test3-bench")
+        status_output = (
+            b"test3-bench-redis:test3-bench-redis-cache  FATAL    exit status 1\n"
+        )
+        with (
+            patch("subprocess.run") as mock_run,
+            patch("time.sleep"),
+        ):
+            mock_run.return_value = MagicMock(
+                returncode=3, stdout=status_output, stderr=b""
+            )
+            try:
+                ProductionSetupStep()._verify_supervisor_running(ctx, timeout=1)
+            except StepError as e:
+                assert "FATAL" in e.hint
+            else:
+                raise AssertionError("StepError not raised")
+
+    def test_bench_redis_ports_parses_config(self, tmp_path):
+        from frappe_cli.install.steps.production import ProductionSetupStep
+
+        bench_dir = tmp_path / "mybenches" / "frappe-bench"
+        sites_dir = bench_dir / "sites"
+        sites_dir.mkdir(parents=True)
+        (sites_dir / "common_site_config.json").write_text(
+            '{"redis_queue": "redis://127.0.0.1:11004", '
+            '"redis_cache": "redis://127.0.0.1:13004", '
+            '"redis_socketio": "redis://127.0.0.1:13004"}'
+        )
+        ctx = make_ctx(bench_name="frappe-bench")
+        with patch("pathlib.Path.home", return_value=tmp_path / "mybenches"):
+            ports = sorted(ProductionSetupStep()._bench_redis_ports(ctx))
+        assert ports == [11004, 13004]
+
+    def test_verify_redis_pong_raises_on_timeout(self):
+        from frappe_cli.install.steps.base import StepError
+        from frappe_cli.install.steps.production import ProductionSetupStep
+
+        ctx = make_ctx()
+        step = ProductionSetupStep()
+        with (
+            patch.object(step, "_bench_redis_ports", return_value=[11004]),
+            patch("socket.create_connection", side_effect=OSError("refused")),
+            patch("time.sleep"),
+        ):
+            try:
+                step._verify_redis_pong(ctx, timeout=1)
+            except StepError as e:
+                assert "11004" in e.message
+            else:
+                raise AssertionError("StepError not raised")
 
 
 # ── ALL_STEPS registry ────────────────────────────────────────────────────────
@@ -431,7 +688,7 @@ class TestSSLSetupStep:
 def test_all_steps_has_correct_count():
     from frappe_cli.install.steps import ALL_STEPS
 
-    assert len(ALL_STEPS) == 16
+    assert len(ALL_STEPS) == 17
 
 
 def test_all_steps_have_unique_names():
@@ -439,3 +696,22 @@ def test_all_steps_have_unique_names():
 
     names = [s.name for s in ALL_STEPS]
     assert len(names) == len(set(names))
+
+
+def test_dns_multitenant_runs_before_production():
+    from frappe_cli.install.steps import ALL_STEPS
+
+    names = [s.name for s in ALL_STEPS]
+    assert names.index("dns_multitenant") < names.index("production_setup")
+
+
+def test_app_install_check_uses_substring_match():
+    """`bench list-apps` prints `erpnext 15.108.1 version-15`, not bare names."""
+    from frappe_cli.install.steps.app import AppInstallStep
+
+    with patch("subprocess.run") as mock_run:
+        mock_run.return_value = MagicMock(
+            returncode=0,
+            stdout="frappe  15.107.5 version-15\nerpnext 15.108.1 version-15\n",
+        )
+        assert AppInstallStep().check(make_ctx()) is True
