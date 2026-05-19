@@ -1,4 +1,6 @@
 import subprocess
+import time
+from pathlib import Path
 from typing import List
 
 from .base import InstallStep
@@ -24,7 +26,11 @@ class SystemUpdateStep(InstallStep):
     description = "System update & upgrade"
 
     def check(self, ctx) -> bool:
-        return False
+        # Skip if apt-get update ran within the last 24 hours
+        stamp = Path("/var/lib/apt/periodic/update-success-stamp")
+        if not stamp.exists():
+            return False
+        return (time.time() - stamp.stat().st_mtime) < 86400
 
     def run(self, ctx) -> None:
         self._sudo(ctx, ["apt-get", "update", "-y"])

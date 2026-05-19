@@ -82,13 +82,18 @@ def wizard(resume, dry_run, debug, skip_ssl):
                     )
                 )
 
-            except StepError as e:
+            except Exception as exc:
                 renderer.mark_failed(step.description)
                 try:
                     step.rollback(ctx)
                 except Exception:
                     pass
-                failed = (step, e)
+                if not isinstance(exc, StepError):
+                    exc = StepError(
+                        f"Unexpected error: {type(exc).__name__}",
+                        hint=str(exc),
+                    )
+                failed = (step, exc)
                 break
 
     if failed:

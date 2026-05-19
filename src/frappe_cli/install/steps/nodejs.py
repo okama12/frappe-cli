@@ -12,8 +12,12 @@ class NodeJSStep(InstallStep):
             result = subprocess.run(
                 ["node", "--version"], capture_output=True, text=True
             )
-            return result.returncode == 0
-        except FileNotFoundError:
+            if result.returncode != 0:
+                return False
+            major = int(result.stdout.strip().lstrip("v").split(".")[0])
+            required = 18 if ctx.ubuntu_version == "22.04" else 20
+            return major >= required
+        except (FileNotFoundError, ValueError):
             return False
 
     def run(self, ctx) -> None:

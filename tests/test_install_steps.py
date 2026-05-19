@@ -1,4 +1,5 @@
 # tests/test_install_steps.py
+import time
 from unittest.mock import MagicMock, patch
 
 from frappe_cli.install.context import InstallContext
@@ -27,11 +28,37 @@ def make_ctx(**overrides):
 
 
 class TestSystemUpdateStep:
-    def test_check_always_returns_false(self):
+    def test_check_true_when_stamp_is_fresh(self):
         from frappe_cli.install.steps.system import SystemUpdateStep
 
         step = SystemUpdateStep()
-        assert step.check(make_ctx()) is False
+        with patch("frappe_cli.install.steps.system.Path") as mock_path:
+            mock_stamp = MagicMock()
+            mock_stamp.exists.return_value = True
+            mock_stamp.stat.return_value = MagicMock(st_mtime=time.time() - 3600)
+            mock_path.return_value = mock_stamp
+            assert step.check(make_ctx()) is True
+
+    def test_check_false_when_stamp_missing(self):
+        from frappe_cli.install.steps.system import SystemUpdateStep
+
+        step = SystemUpdateStep()
+        with patch("frappe_cli.install.steps.system.Path") as mock_path:
+            mock_stamp = MagicMock()
+            mock_stamp.exists.return_value = False
+            mock_path.return_value = mock_stamp
+            assert step.check(make_ctx()) is False
+
+    def test_check_false_when_stamp_old(self):
+        from frappe_cli.install.steps.system import SystemUpdateStep
+
+        step = SystemUpdateStep()
+        with patch("frappe_cli.install.steps.system.Path") as mock_path:
+            mock_stamp = MagicMock()
+            mock_stamp.exists.return_value = True
+            mock_stamp.stat.return_value = MagicMock(st_mtime=time.time() - 90000)
+            mock_path.return_value = mock_stamp
+            assert step.check(make_ctx()) is False
 
     def test_run_calls_apt_update_and_upgrade(self):
         from frappe_cli.install.steps.system import SystemUpdateStep
@@ -112,18 +139,25 @@ class TestUvCheckStep:
 
 
 class TestNodeJSStep:
-    def test_check_true_when_node_present(self):
+    def test_check_true_when_correct_node_version(self):
         from frappe_cli.install.steps.nodejs import NodeJSStep
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            assert NodeJSStep().check(make_ctx()) is True
+            mock_run.return_value = MagicMock(returncode=0, stdout="v18.20.4\n")
+            assert NodeJSStep().check(make_ctx(ubuntu_version="22.04")) is True
+
+    def test_check_false_when_wrong_node_version(self):
+        from frappe_cli.install.steps.nodejs import NodeJSStep
+
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = MagicMock(returncode=0, stdout="v16.0.0\n")
+            assert NodeJSStep().check(make_ctx(ubuntu_version="22.04")) is False
 
     def test_check_false_when_node_missing(self):
         from frappe_cli.install.steps.nodejs import NodeJSStep
 
         with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1)
+            mock_run.return_value = MagicMock(returncode=1, stdout="")
             assert NodeJSStep().check(make_ctx()) is False
 
     def test_run_uses_node18_for_2204(self):

@@ -38,6 +38,10 @@ class InstallStep(ABC):
         if local_bin not in paths:
             env["PATH"] = f"{local_bin}:{env.get('PATH', '')}"
         env["PYTHONUNBUFFERED"] = "1"
+        # Prevent apt/dpkg from showing interactive prompts in a non-TTY
+        # subprocess. Without this, packages like software-properties-common
+        # hang forever waiting for input on Ubuntu 24.04.
+        env["DEBIAN_FRONTEND"] = "noninteractive"
         return env
 
     def _popen(
