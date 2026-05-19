@@ -3,7 +3,7 @@
 import click
 
 from .restart import restart
-from .status import status
+from .status import status as status_command
 
 
 @click.group()
@@ -13,4 +13,4 @@ def service():
 
 
 service.add_command(restart)
-service.add_command(status)
+service.add_command(status_command)

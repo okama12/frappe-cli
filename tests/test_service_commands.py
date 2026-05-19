@@ -1,8 +1,14 @@
+import importlib
 from unittest.mock import patch
 
 from click.testing import CliRunner
 
 import frappe_cli.cli as cli
+
+# `service/__init__.py` does `from .status import status` (the Click command),
+# which shadows the submodule on `frappe_cli.service.status`. Always resolve the
+# real module via importlib for patching.
+_STATUS_MOD = importlib.import_module("frappe_cli.service.status")
 
 
 def test_service_help():
@@ -54,12 +60,9 @@ def test_service_status_lists_apps_with_bench_cwd(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     with (
-        patch(
-            "frappe_cli.service.status.shell_runner.run",
-            side_effect=fake_runner_run,
-        ),
-        patch("frappe_cli.service.status.os.path.isdir", side_effect=fake_isdir),
-        patch("frappe_cli.service.status.cert_exists", return_value=False),
+        patch.object(_STATUS_MOD.shell_runner, "run", side_effect=fake_runner_run),
+        patch.object(_STATUS_MOD.os.path, "isdir", side_effect=fake_isdir),
+        patch.object(_STATUS_MOD, "cert_exists", return_value=False),
     ):
         runner = CliRunner()
         result = runner.invoke(
