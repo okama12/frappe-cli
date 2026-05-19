@@ -47,6 +47,10 @@ class ProductionSetupStep(InstallStep):
             ],
             cwd=str(ctx.bench_path),
         )
+        # nginx (www-data) must be able to traverse the home directory to serve
+        # bench static files. Without o+x, every request returns 403 Forbidden.
+        self._sudo(ctx, ["chmod", "o+x", str(Path.home())])
+
         # Restart supervisor so bench's Redis queue workers actually start.
         # bench setup production writes conf files but doesn't guarantee the
         # processes are running; bench install-app needs Redis on those ports.
@@ -64,4 +68,6 @@ class BenchRestartStep(InstallStep):
         return not ctx.app_url
 
     def run(self, ctx) -> None:
-        self._sudo(ctx, ["supervisorctl", "reload"])
+        self._sudo(ctx, ["supervisorctl", "reread"])
+        self._sudo(ctx, ["supervisorctl", "update"])
+        self._sudo(ctx, ["systemctl", "reload", "nginx"])

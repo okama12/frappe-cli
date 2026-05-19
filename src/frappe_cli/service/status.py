@@ -29,7 +29,7 @@ class ShellRunner:
                 import subprocess
 
                 result = subprocess.run(
-                    cmd, check=check, capture_output=True, _text=True
+                    cmd, check=check, capture_output=True, text=True
                 )
                 result = result.stdout
             if result is None:
@@ -112,7 +112,7 @@ def status(bench_name, site_name):
     console.print(
         Panel.fit("[bold blue]Service Status[/bold blue]", border_style="blue")
     )
-    table = Table(show_header=True, _header_style="bold magenta")
+    table = Table(show_header=True, header_style="bold magenta")
     table.add_column("Service")
     table.add_column("Status")
     for service in SERVICES:
@@ -182,7 +182,11 @@ def status(bench_name, site_name):
         Panel.fit("[bold blue]SSL Certificate[/bold blue]", border_style="blue")
     )
     ssl_path = f"/etc/letsencrypt/live/{site_name}/fullchain.pem"
-    if site_name and os.path.isfile(ssl_path):
+    try:
+        ssl_exists = site_name and os.path.isfile(ssl_path)
+    except PermissionError:
+        ssl_exists = bool(site_name)  # root-owned path exists
+    if ssl_exists:
         exp_date = shell_runner.run(
             ["openssl", "x509", "-enddate", "-noout", "-in", ssl_path],
             description="Check SSL expiry",
