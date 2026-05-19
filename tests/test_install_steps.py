@@ -397,7 +397,7 @@ class TestSSLSetupStep:
 def test_all_steps_has_correct_count():
     from frappe_cli.install.steps import ALL_STEPS
 
-    assert len(ALL_STEPS) == 15
+    assert len(ALL_STEPS) == 16
 
 
 def test_all_steps_have_unique_names():

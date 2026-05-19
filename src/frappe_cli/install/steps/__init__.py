@@ -3,7 +3,7 @@ from .bench import BenchInstallStep
 from .init_bench import BenchInitStep
 from .mariadb import MariaDBInstallStep, MariaDBSecureStep
 from .nodejs import NodeJSStep
-from .production import ProductionSetupStep
+from .production import BenchRestartStep, ProductionSetupStep
 from .redis import RedisStep
 from .site import SiteCreateStep
 from .ssl import SSLSetupStep
@@ -24,7 +24,10 @@ ALL_STEPS = [
     BenchInitStep(),
     SiteCreateStep(),
     AppGetStep(),
-    AppInstallStep(),
+    # Production setup runs before app install so that supervisor starts
+    # bench's Redis queue (port 11000). bench install-app requires it.
     ProductionSetupStep(),
+    AppInstallStep(),
+    BenchRestartStep(),
     SSLSetupStep(),
 ]

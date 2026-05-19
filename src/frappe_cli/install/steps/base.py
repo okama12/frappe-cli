@@ -37,6 +37,7 @@ class InstallStep(ABC):
         paths = env.get("PATH", "").split(":")
         if local_bin not in paths:
             env["PATH"] = f"{local_bin}:{env.get('PATH', '')}"
+        env["PYTHONUNBUFFERED"] = "1"
         return env
 
     def _popen(

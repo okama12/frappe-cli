@@ -37,3 +37,16 @@ class ProductionSetupStep(InstallStep):
                 raise StepError("bench setup production failed", hint=result.stderr)
         finally:
             os.unlink(askpass.name)
+
+
+class BenchRestartStep(InstallStep):
+    """Reload supervisor workers so they pick up newly installed app code."""
+
+    name = "bench_restart"
+    description = "Reload bench workers"
+
+    def check(self, ctx) -> bool:
+        return not ctx.app_url
+
+    def run(self, ctx) -> None:
+        self._sudo(ctx, ["supervisorctl", "reload"])

@@ -53,14 +53,13 @@ def wizard(resume, dry_run, debug, skip_ssl):
 
     failed = None
 
-    with Live(renderer.render(), console=console, refresh_per_second=10) as live:
+    with Live(renderer, console=console, refresh_per_second=8):
         for step in active_steps:
             if step.name in completed_steps:
                 continue
 
             renderer.set_current(step.description)
             renderer.mark_running(step.description)
-            live.update(renderer.render())
 
             try:
                 if step.check(ctx):
@@ -85,15 +84,12 @@ def wizard(resume, dry_run, debug, skip_ssl):
 
             except StepError as e:
                 renderer.mark_failed(step.description)
-                live.update(renderer.render())
                 try:
                     step.rollback(ctx)
                 except Exception:
                     pass
                 failed = (step, e)
                 break
-
-            live.update(renderer.render())
 
     if failed:
         step, err = failed

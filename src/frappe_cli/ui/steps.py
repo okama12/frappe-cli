@@ -3,7 +3,7 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 
-from rich.console import Group
+from rich.console import Console, ConsoleOptions, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
@@ -62,6 +62,8 @@ class StepListRenderer:
         low = line.lower()
         if "[sudo]" in low or low.startswith("password"):
             return
+        if len(line) > 90:
+            line = line[:87] + "..."
         self._logs.append(line)
 
     def set_current(self, name: str) -> None:
@@ -115,6 +117,7 @@ class StepListRenderer:
             title="[bold] Installing Frappe Production Stack [/bold]",
             border_style="blue",
             padding=(0, 1),
+            expand=False,
         )
 
         log_lines = Text()
@@ -127,7 +130,7 @@ class StepListRenderer:
         title = (
             f"[bold cyan]▶  {self._current}[/bold cyan]" if self._current else "Output"
         )
-        log_panel = Panel(log_lines, title=title, border_style="dim", padding=(0, 1))
+        log_panel = Panel(log_lines, title=title, border_style="dim", padding=(0, 1), expand=False)
 
         return Group(steps_panel, log_panel)
 
@@ -159,3 +162,6 @@ class StepListRenderer:
 
     def update_elapsed(self, name: str, elapsed: float) -> None:
         pass  # handled automatically via start/finish
+
+    def __rich_console__(self, console: Console, options: ConsoleOptions):
+        yield self.render()
