@@ -309,8 +309,8 @@ class TestSiteCreateStep:
             SiteCreateStep().run(make_ctx())
         all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
         assert "new-site" in all_args
-        assert "--mariadb-root-password-from-env" in all_args
-        assert "--admin-password-from-env" in all_args
+        assert "--mariadb-root-password" in all_args
+        assert "--admin-password" in all_args
 
 
 # ── AppGetStep ────────────────────────────────────────────────────────────────
