@@ -1,4 +1,5 @@
 import getpass
+import time
 from pathlib import Path
 
 from .base import InstallStep
@@ -46,6 +47,11 @@ class ProductionSetupStep(InstallStep):
             ],
             cwd=str(ctx.bench_path),
         )
+        # Restart supervisor so bench's Redis queue workers actually start.
+        # bench setup production writes conf files but doesn't guarantee the
+        # processes are running; bench install-app needs Redis on those ports.
+        self._sudo(ctx, ["service", "supervisor", "restart"])
+        time.sleep(5)  # give Redis workers time to bind their ports
 
 
 class BenchRestartStep(InstallStep):
