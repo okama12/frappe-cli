@@ -28,11 +28,22 @@ class ProductionSetupStep(InstallStep):
         self._sudo(ctx, ["apt-get", "install", "-y", "ansible"])
 
         # bench setup production requires UID 0, so we must run it under sudo.
-        # With ansible already in PATH the problematic pip install is bypassed;
-        # all remaining operations run as root without prompting.
+        # sudo resets PATH to its secure default, which excludes ~/.local/bin.
+        # Bench's ansible playbook calls `bench setup role <x>` as subprocesses
+        # that inherit the env, so we pass PATH explicitly via `env` to ensure
+        # bench can find itself throughout the playbook execution.
+        bench_path = self._local_bin_env()["PATH"]
         self._sudo(
             ctx,
-            [bench_bin, "setup", "production", current_user, "--yes"],
+            [
+                "env",
+                f"PATH={bench_path}",
+                bench_bin,
+                "setup",
+                "production",
+                current_user,
+                "--yes",
+            ],
             cwd=str(ctx.bench_path),
         )
 
