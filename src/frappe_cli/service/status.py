@@ -1,4 +1,5 @@
 import os
+import subprocess
 
 import click
 from rich.console import Console
@@ -7,6 +8,7 @@ from rich.table import Table
 
 from ..utils import shell
 from ..utils.logging import get_logger
+from ..utils.ssl_cert import cert_exists, cert_expiry
 
 SERVICES = ["mariadb", "redis-server", "nginx", "supervisor"]
 
@@ -21,17 +23,19 @@ class ShellRunner:
         self.console = console
         self.logger = logger
 
-    def run(self, cmd, description=None, check=True):
+    def run(self, cmd, description=None, check=True, cwd=None):
         try:
             if hasattr(shell, "run"):
-                result = shell.run(cmd)
+                result = shell.run(cmd, check=check, cwd=cwd)
             else:
-                import subprocess
-
-                result = subprocess.run(
-                    cmd, check=check, capture_output=True, text=True
+                proc = subprocess.run(
+                    cmd,
+                    check=check,
+                    capture_output=True,
+                    text=True,
+                    cwd=cwd,
                 )
-                result = result.stdout
+                result = proc.stdout
             if result is None:
                 if description:
                     self.console.print(
@@ -51,6 +55,17 @@ class ShellRunner:
 
 
 shell_runner = ShellRunner(console, logger)
+
+
+def _resolve_bench_path(bench_name: str) -> str | None:
+    """Return an absolute bench path if the directory exists."""
+    bench_path = bench_name
+    if os.path.isabs(bench_path):
+        return bench_path if os.path.isdir(bench_path) else None
+    if os.path.isdir(bench_path):
+        return os.path.abspath(bench_path)
+    home_bench = os.path.expanduser(f"~/{bench_path}")
+    return home_bench if os.path.isdir(home_bench) else None
 
 
 @click.command()
@@ -140,34 +155,38 @@ def status(bench_name, site_name):
             ["bench", "--version"], description="Get Bench version", check=False
         )
         console.print(f"[green]Bench CLI:[/green] {version.strip()}")
-        bench_path = bench_name
-        if not os.path.isabs(bench_path):
-            # Try current directory first
-            if not os.path.isdir(bench_path):
-                # Try in home directory
-                home_bench_path = os.path.expanduser(f"~/{bench_path}")
-                if os.path.isdir(home_bench_path):
-                    bench_path = home_bench_path
-                    console.print(
-                        f"[yellow]Bench directory not found in current directory, using: {bench_path}[/yellow]"
-                    )
-        if os.path.isdir(bench_path):
+        bench_path = _resolve_bench_path(bench_name)
+        if (
+            bench_path
+            and not os.path.isdir(bench_name)
+            and not os.path.isabs(bench_name)
+        ):
+            console.print(
+                f"[yellow]Bench directory not found in current directory, using: {bench_path}[/yellow]"
+            )
+        if bench_path and os.path.isdir(bench_path):
             console.print(f"[green]Bench directory:[/green] {bench_path} exists")
             sites_dir = os.path.join(bench_path, "sites")
             if site_name and os.path.isdir(os.path.join(sites_dir, site_name)):
                 console.print(f"[green]Site:[/green] {site_name} exists")
-                try:
-                    apps = shell_runner.run(
-                        ["bench", "--site", site_name, "list-apps"],
-                        description="List installed apps",
-                        check=False,
+                # bench only accepts `--site` when cwd is inside the bench tree.
+                apps = shell_runner.run(
+                    ["bench", "--site", site_name, "list-apps"],
+                    description="List installed apps",
+                    check=False,
+                    cwd=bench_path,
+                )
+                if apps.strip():
+                    console.print("Installed apps:")
+                    for app in apps.splitlines():
+                        if app.strip():
+                            console.print(f"  - {app.strip()}")
+                else:
+                    console.print(
+                        "[yellow]Could not list installed apps "
+                        f"(run from {bench_path}: "
+                        f"bench --site {site_name} list-apps)[/yellow]"
                     )
-                    if apps:
-                        console.print("Installed apps:")
-                        for app in apps.splitlines():
-                            console.print(f"  - {app}")
-                except Exception:
-                    pass
 
             elif site_name:
                 console.print(f"[red]Site: {site_name} not found[/red]")
@@ -181,24 +200,32 @@ def status(bench_name, site_name):
     console.print(
         Panel.fit("[bold blue]SSL Certificate[/bold blue]", border_style="blue")
     )
-    ssl_path = f"/etc/letsencrypt/live/{site_name}/fullchain.pem"
-    try:
-        ssl_exists = site_name and os.path.isfile(ssl_path)
-    except PermissionError:
-        ssl_exists = bool(site_name)  # root-owned path exists
-    if ssl_exists:
-        exp_date = shell_runner.run(
-            ["openssl", "x509", "-enddate", "-noout", "-in", ssl_path],
-            description="Check SSL expiry",
-            check=False,
-        )
-        if exp_date and "=" in exp_date:
-            exp = exp_date.split("=")[1].strip()
-            console.print(f"[green]SSL certificate valid until:[/green] {exp}")
-        else:
-            console.print(
-                f"[yellow]Could not determine SSL certificate expiry for {site_name}[/yellow]"
-            )
+    if not site_name:
+        console.print("[yellow]No site name provided — skipping SSL check[/yellow]")
     else:
-        console.print(f"[red]SSL certificate not found for {site_name}[/red]")
+        resolved_bench = _resolve_bench_path(bench_name)
+        has_ssl = cert_exists(
+            site_name,
+            bench_path=resolved_bench,
+        )
+        if has_ssl:
+            exp = cert_expiry(site_name)
+            if exp:
+                console.print(f"[green]SSL certificate valid until:[/green] {exp}")
+            else:
+                console.print(
+                    f"[green]SSL configured for {site_name}[/green] "
+                    "(Let's Encrypt / bench nginx)"
+                )
+                console.print(
+                    "[dim]  Expiry date needs sudo to read the cert file — "
+                    "run: sudo openssl x509 -enddate -noout -in "
+                    f"/etc/letsencrypt/live/{site_name}/fullchain.pem[/dim]"
+                )
+        else:
+            console.print(f"[red]SSL certificate not found for {site_name}[/red]")
+            console.print(
+                "[dim]  If you just installed SSL, try: "
+                f"frappe ssl setup --site-name {site_name}[/dim]"
+            )
     logger.info("[service] Status check completed.")

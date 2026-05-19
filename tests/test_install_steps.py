@@ -185,25 +185,114 @@ class TestNodeJSStep:
 
 
 class TestMariaDBInstallStep:
-    def test_check_true_when_running_and_config_exists(self, tmp_path):
+    def test_check_true_when_service_active_and_config_exists(self, tmp_path):
         from frappe_cli.install.steps.mariadb import MariaDBInstallStep
 
         step = MariaDBInstallStep()
         fake_cnf = tmp_path / "99-frappe.cnf"
         fake_cnf.write_text("[mysqld]")
-        with patch("subprocess.run") as mock_run, patch.object(
-            step, "CNF_PATH", str(fake_cnf)
+        with (
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_unit_active",
+                return_value=True,
+            ),
+            patch.object(step, "CNF_PATH", str(fake_cnf)),
         ):
-            mock_run.return_value = MagicMock(returncode=0)
             assert step.check(make_ctx()) is True
 
-    def test_check_false_when_mysqladmin_fails(self):
+    def test_check_false_when_service_not_active(self, tmp_path):
         from frappe_cli.install.steps.mariadb import MariaDBInstallStep
 
         step = MariaDBInstallStep()
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1)
+        fake_cnf = tmp_path / "99-frappe.cnf"
+        fake_cnf.write_text("[mysqld]")
+        with (
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_unit_active",
+                return_value=False,
+            ),
+            patch.object(step, "CNF_PATH", str(fake_cnf)),
+        ):
             assert step.check(make_ctx()) is False
+
+    def test_check_false_when_cnf_missing_even_if_service_active(self):
+        from frappe_cli.install.steps.mariadb import MariaDBInstallStep
+
+        step = MariaDBInstallStep()
+        with (
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_unit_active",
+                return_value=True,
+            ),
+            patch(
+                "frappe_cli.install.steps.mariadb._frappe_cnf_exists",
+                return_value=False,
+            ),
+        ):
+            assert step.check(make_ctx()) is False
+
+    def test_run_skips_apt_when_mariadb_already_installed(self):
+        from frappe_cli.install.steps.mariadb import MariaDBInstallStep
+
+        step = MariaDBInstallStep()
+        ctx = make_ctx()
+        sudo_calls: list[list[str]] = []
+
+        def fake_sudo(c, cmd, cwd=None):
+            sudo_calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with (
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_packages_installed",
+                return_value=True,
+            ),
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_unit_active",
+                return_value=True,
+            ),
+            patch(
+                "frappe_cli.install.steps.mariadb._frappe_cnf_exists",
+                return_value=True,
+            ),
+            patch.object(step, "_sudo", side_effect=fake_sudo),
+            patch.object(step, "_sudo_write") as mock_write,
+        ):
+            step.run(ctx)
+
+        assert not any("apt-get" in " ".join(c) for c in sudo_calls)
+        mock_write.assert_not_called()
+
+    def test_run_installs_packages_on_fresh_host(self):
+        from frappe_cli.install.steps.mariadb import MariaDBInstallStep
+
+        step = MariaDBInstallStep()
+        ctx = make_ctx()
+        sudo_calls: list[list[str]] = []
+
+        def fake_sudo(c, cmd, cwd=None):
+            sudo_calls.append(cmd)
+            return MagicMock(returncode=0)
+
+        with (
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_packages_installed",
+                return_value=False,
+            ),
+            patch(
+                "frappe_cli.install.steps.mariadb._mariadb_unit_active",
+                return_value=False,
+            ),
+            patch(
+                "frappe_cli.install.steps.mariadb._frappe_cnf_exists",
+                return_value=False,
+            ),
+            patch.object(step, "_sudo", side_effect=fake_sudo),
+            patch.object(step, "_sudo_write"),
+        ):
+            step.run(ctx)
+
+        assert any(c[:3] == ["apt-get", "install", "-y"] for c in sudo_calls)
 
 
 class TestMariaDBSecureStep:
@@ -421,16 +510,39 @@ class TestSiteCreateStep:
         with patch("pathlib.Path.home", return_value=tmp_path):
             assert SiteCreateStep().check(ctx) is False
 
-    def test_run_calls_bench_new_site_with_passwords(self):
+    def test_run_streams_via_popen_when_log_fn_set(self):
         from frappe_cli.install.steps.site import SiteCreateStep
 
+        step = SiteCreateStep()
+        ctx = make_ctx()
+        logs: list[str] = []
+        ctx.log_fn = logs.append
+
+        with patch.object(step, "_popen") as mock_popen:
+            mock_popen.return_value = MagicMock(returncode=0)
+            step.run(ctx)
+
+        mock_popen.assert_called_once()
+        cmd = mock_popen.call_args[0][1]
+        assert cmd[1] == "new-site"
+        assert "--mariadb-root-password" in cmd
+        assert "dbpass" in cmd  # real password passed to subprocess, not log
+        assert any("new-site" in line for line in logs)
+        assert any("***" in line for line in logs)
+        assert not any("dbpass" in line for line in logs)
+
+    def test_run_uses_subprocess_when_no_log_fn(self):
+        from frappe_cli.install.steps.site import SiteCreateStep
+
+        ctx = make_ctx()
+        ctx.log_fn = None
         with patch("subprocess.run") as mock_run:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
-            SiteCreateStep().run(make_ctx())
-        all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
-        assert "new-site" in all_args
-        assert "--mariadb-root-password" in all_args
-        assert "--admin-password" in all_args
+            SiteCreateStep().run(ctx)
+        cmd = mock_run.call_args[0][0]
+        assert "new-site" in cmd
+        assert "--mariadb-root-password" in cmd
+        assert "--admin-password" in cmd
 
 
 # ── AppGetStep ────────────────────────────────────────────────────────────────

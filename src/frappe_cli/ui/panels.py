@@ -5,6 +5,21 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.text import Text
 
+# Tight padding so panels hug their content (wizard list/output panels unchanged).
+_COMPACT_PAD = (0, 1)
+
+
+def _fit_panel(
+    renderable, *, title: str | None = None, border_style: str | None = None
+):
+    return Panel.fit(
+        renderable,
+        box=box.ROUNDED,
+        padding=_COMPACT_PAD,
+        title=title,
+        border_style=border_style,
+    )
+
 
 def print_header(console: Console) -> None:
     try:
@@ -12,59 +27,57 @@ def print_header(console: Console) -> None:
     except importlib.metadata.PackageNotFoundError:
         version = "dev"
     content = Text()
-    content.append("  Frappe CLI  ", style="bold green")
+    content.append("Frappe CLI ", style="bold green")
     content.append(f"v{version}\n", style="bold")
-    content.append("  Production Server Installer\n", style="dim")
-    content.append("\n")
-    content.append("  Built by ", style="dim")
+    content.append("Production Server Installer\n", style="dim")
+    content.append("Built by ", style="dim")
     content.append("Rashidi Okama", style="bold cyan")
-    content.append("  ·  Tanzania\n", style="dim")
-    content.append("  ", style="dim")
+    content.append(" · Tanzania\n", style="dim")
     content.append("github.com/okama12", style="cyan")
-    content.append("   ·   ", style="dim")
+    content.append(" · ", style="dim")
     content.append("rashidiokama.com", style="cyan")
-    console.print(Panel(content, box=box.ROUNDED, padding=(1, 2)))
+    console.print(_fit_panel(content, border_style="green"))
 
 
 def print_success(console: Console, ctx) -> None:
     protocol = "http" if ctx.skip_ssl else "https"
     ssl_line = (
-        "  [dim]SSL[/dim]      Let's Encrypt — auto-renews"
+        "[dim]SSL[/dim]     Let's Encrypt — auto-renews"
         if not ctx.skip_ssl
-        else "  [dim]SSL[/dim]      Not configured (--skip-ssl)"
+        else "[dim]SSL[/dim]     Not configured (--skip-ssl)"
     )
     app_line = (
-        f"  [dim]App[/dim]      {ctx.app_name}  ({ctx.app_branch})"
+        f"[dim]App[/dim]     {ctx.app_name} ({ctx.app_branch})"
         if ctx.app_url
-        else "  [dim]App[/dim]      Frappe only"
+        else "[dim]App[/dim]     Frappe only"
     )
-    lines = "\n".join(
+    body = "\n".join(
         [
-            f"[bold green]✓  Frappe is live at {protocol}://{ctx.site_name}[/bold green]\n",
-            f"  [dim]Bench[/dim]    ~/{ctx.bench_name}",
-            f"  [dim]Site[/dim]     {ctx.site_name}",
+            f"[bold green]✓ Frappe is live at {protocol}://{ctx.site_name}[/bold green]",
+            f"[dim]Bench[/dim]   ~/{ctx.bench_name}",
+            f"[dim]Site[/dim]    {ctx.site_name}",
             app_line,
             ssl_line,
         ]
     )
     console.print(
-        Panel(lines, title="[green]Installation Complete[/green]", box=box.ROUNDED)
+        _fit_panel(
+            body, title="[green]Installation Complete[/green]", border_style="green"
+        )
     )
-    console.print("\n  [dim]Next steps:[/dim]")
-    console.print("    [cyan]frappe service status[/cyan]   — check running services")
-    console.print("    [cyan]frappe site backup[/cyan]      — take a manual backup")
+    console.print("\n[dim]Next steps:[/dim]")
+    console.print("  [cyan]frappe service status[/cyan]  — check running services")
+    console.print("  [cyan]frappe site backup[/cyan]     — take a manual backup")
     if ctx.skip_ssl:
         console.print(
-            "    [cyan]frappe install wizard[/cyan]   — re-run without --skip-ssl to add SSL\n"
+            "  [cyan]frappe install wizard[/cyan]  — re-run without --skip-ssl to add SSL"
         )
     else:
-        console.print(
-            "    [cyan]frappe ssl setup[/cyan]        — renew SSL certificate\n"
-        )
+        console.print("  [cyan]frappe ssl setup[/cyan]       — renew SSL certificate")
     console.print(
-        "  [dim]Made with care by Rashidi Okama in Tanzania · "
+        "\n[dim]Made with care by Rashidi Okama in Tanzania · "
         "if this saved you time, star the repo:[/dim] "
-        "[cyan]github.com/okama12/frappe-cli[/cyan]\n"
+        "[cyan]github.com/okama12/frappe-cli[/cyan]"
     )
 
 
@@ -73,13 +86,13 @@ def print_error(
 ) -> None:
     parts = [f"[red]{message}[/red]"]
     if hint.strip():
-        parts.append(f"\n  [dim]stderr:[/dim] {hint.strip()[:300]}")
-    parts.append("\n  Fix the issue then re-run:")
-    parts.append("    [cyan]frappe install wizard --resume[/cyan]")
+        parts.append(f"\n[dim]stderr:[/dim] {hint.strip()[:300]}")
+    parts.append("\nFix the issue then re-run:")
+    parts.append("  [cyan]frappe install wizard --resume[/cyan]")
     console.print(
-        Panel(
+        _fit_panel(
             "\n".join(parts),
-            title=f"[bold red]Error in: {step_description}[/bold red]",
-            box=box.ROUNDED,
+            title=f"[bold red]Error: {step_description}[/bold red]",
+            border_style="red",
         )
     )
