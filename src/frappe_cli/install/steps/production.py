@@ -1,4 +1,6 @@
 import getpass
+import json
+import socket
 import time
 from pathlib import Path
 
@@ -47,15 +49,48 @@ class ProductionSetupStep(InstallStep):
             ],
             cwd=str(ctx.bench_path),
         )
+
         # nginx (www-data) must be able to traverse the home directory to serve
         # bench static files. Without o+x, every request returns 403 Forbidden.
         self._sudo(ctx, ["chmod", "o+x", str(Path.home())])
 
-        # Restart supervisor so bench's Redis queue workers actually start.
-        # bench setup production writes conf files but doesn't guarantee the
-        # processes are running; bench install-app needs Redis on those ports.
-        self._sudo(ctx, ["service", "supervisor", "restart"])
-        time.sleep(5)  # give Redis workers time to bind their ports
+        # Load the new bench's supervisor config without restarting other benches.
+        # `service supervisor restart` kills all benches on multi-bench servers;
+        # reread+update only adds the new bench's process group.
+        self._sudo(ctx, ["supervisorctl", "reread"])
+        self._sudo(ctx, ["supervisorctl", "update"])
+
+        # Block until the bench's Redis queue is accepting connections.
+        # bench install-app connects to Redis immediately; if we proceed before
+        # it's ready we get "Connection refused" on port 11001/11003/etc.
+        self._wait_for_bench_redis(ctx)
+
+    def _wait_for_bench_redis(self, ctx, timeout: int = 60) -> None:
+        config_path = ctx.bench_path / "sites" / "common_site_config.json"
+        port = 11001  # fallback default
+        try:
+            with open(config_path) as f:
+                config = json.load(f)
+            redis_url = config.get("redis_queue", f"redis://127.0.0.1:{port}")
+            port = int(redis_url.rsplit(":", 1)[-1])
+        except Exception:
+            pass
+
+        if ctx.log_fn:
+            ctx.log_fn(f"Waiting for Redis queue on port {port}...")
+
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            try:
+                with socket.create_connection(("127.0.0.1", port), timeout=1):
+                    if ctx.log_fn:
+                        ctx.log_fn(f"Redis queue ready on port {port}")
+                    return
+            except OSError:
+                time.sleep(2)
+
+        if ctx.log_fn:
+            ctx.log_fn(f"Warning: Redis on port {port} did not start within {timeout}s")
 
 
 class BenchRestartStep(InstallStep):
