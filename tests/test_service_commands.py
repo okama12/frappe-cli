@@ -31,7 +31,7 @@ def test_service_status_lists_apps_with_bench_cwd(tmp_path, monkeypatch):
 
     list_apps_calls: list[dict] = []
 
-    def fake_shell_run(cmd, check=True, cwd=None, **kwargs):
+    def fake_runner_run(cmd, description=None, check=True, cwd=None):
         if cmd == ["bench", "--site", "erp.example.com", "list-apps"]:
             list_apps_calls.append({"cmd": cmd, "cwd": cwd})
             return "frappe  15.0 version-15\nerpnext 15.0 version-15"
@@ -54,9 +54,11 @@ def test_service_status_lists_apps_with_bench_cwd(tmp_path, monkeypatch):
 
     monkeypatch.chdir(tmp_path)
     with (
-        patch("frappe_cli.service.status.shell.run", side_effect=fake_shell_run),
+        patch(
+            "frappe_cli.service.status.shell_runner.run",
+            side_effect=fake_runner_run,
+        ),
         patch("frappe_cli.service.status.os.path.isdir", side_effect=fake_isdir),
-        patch("frappe_cli.service.status.os.path.isabs", return_value=False),
         patch("frappe_cli.service.status.cert_exists", return_value=False),
     ):
         runner = CliRunner()
