@@ -60,6 +60,37 @@ class TestSudoersUtil:
 
             assert is_managed() is False
 
+    def test_path_exists_falls_back_to_sudo_test_on_permission_error(self, tmp_path):
+        """Regression: /etc/sudoers.d/ is mode 0750, so Path.exists() raises."""
+        fake_path = tmp_path / "frappe-cli"
+        with (
+            patch("frappe_cli.utils.sudoers.SUDOERS_PATH", fake_path),
+            patch.object(
+                type(fake_path), "exists", side_effect=PermissionError(13, "denied")
+            ),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = subprocess.CompletedProcess([], 0)
+            from frappe_cli.utils.sudoers import path_exists
+
+            assert path_exists("secret") is True
+        called_cmd = mock_run.call_args[0][0]
+        assert called_cmd[:3] == ["sudo", "-S", "test"]
+
+    def test_path_exists_returns_false_without_password_when_stat_denied(
+        self, tmp_path
+    ):
+        fake_path = tmp_path / "frappe-cli"
+        with (
+            patch("frappe_cli.utils.sudoers.SUDOERS_PATH", fake_path),
+            patch.object(
+                type(fake_path), "exists", side_effect=PermissionError(13, "denied")
+            ),
+        ):
+            from frappe_cli.utils.sudoers import path_exists
+
+            assert path_exists() is False
+
     def test_is_managed_reads_root_owned_file_via_sudo(self, tmp_path):
         drop_in = tmp_path / "frappe-cli"
         drop_in.write_text("# Managed by frappe-cli\nrule\n")
@@ -220,6 +251,7 @@ class TestSudoersSetupStep:
         drop_in.write_text("# Managed by frappe-cli\nrule\n")
         with (
             patch("frappe_cli.install.steps.sudoers.SUDOERS_PATH", drop_in),
+            patch("frappe_cli.install.steps.sudoers.path_exists", return_value=True),
             patch("frappe_cli.install.steps.sudoers.is_managed", return_value=True),
             patch("frappe_cli.utils.sudoers.disable") as mock_disable,
         ):
@@ -282,7 +314,17 @@ class TestFpSudoCommands:
     def test_disable_restart_no_file(self, tmp_path):
         fake_path = tmp_path / "frappe-cli"
         runner = CliRunner()
-        with patch("frappe_cli.dev.sudo_commands.SUDOERS_PATH", fake_path):
+        with (
+            patch("frappe_cli.dev.sudo_commands.SUDOERS_PATH", fake_path),
+            patch(
+                "frappe_cli.dev.sudo_commands.Prompt.ask",
+                return_value="secret",
+            ),
+            patch(
+                "frappe_cli.dev.sudo_commands.path_exists",
+                return_value=False,
+            ),
+        ):
             result = runner.invoke(cli, ["sudo", "disable-restart"])
         assert result.exit_code == 0
         assert "nothing to remove" in result.output.lower()

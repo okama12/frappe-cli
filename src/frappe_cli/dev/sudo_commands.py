@@ -21,6 +21,7 @@ from frappe_cli.utils.sudoers import (
     enable,
     is_enabled,
     is_managed,
+    path_exists,
 )
 
 _console = Console()
@@ -41,7 +42,7 @@ def sudo_status() -> None:
             f"[green]✓[/green] Passwordless restart is [bold]enabled[/bold]"
             f"  [dim](user: {user})[/dim]"
         )
-        if SUDOERS_PATH.exists() and is_managed():
+        if path_exists() and is_managed():
             _console.print(f"  [dim]Managed by frappe-cli → {SUDOERS_PATH}[/dim]")
         else:
             _console.print(
@@ -113,17 +114,17 @@ def disable_restart(dry_run: bool) -> None:
         fp sudo disable-restart
         fp sudo disable-restart --dry-run
     """
-    if not SUDOERS_PATH.exists():
-        _console.print(
-            "[dim]No frappe-cli sudoers rule found — nothing to remove.[/dim]"
-        )
-        return
-
     if dry_run:
         _console.print(f"[dim][dry-run] Would remove {SUDOERS_PATH}[/dim]")
         return
 
     sudo_password = Prompt.ask("  Sudo password", password=True)
+
+    if not path_exists(sudo_password):
+        _console.print(
+            "[dim]No frappe-cli sudoers rule found — nothing to remove.[/dim]"
+        )
+        return
 
     if not is_managed(sudo_password):
         raise click.ClickException(

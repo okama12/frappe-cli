@@ -1,6 +1,6 @@
 """Wizard step: grant passwordless ``bench restart`` / ``fp restart``."""
 
-from frappe_cli.utils.sudoers import SUDOERS_PATH, enable, is_managed
+from frappe_cli.utils.sudoers import SUDOERS_PATH, enable, is_managed, path_exists
 
 from .base import InstallStep, StepError
 
@@ -45,7 +45,7 @@ class SudoersSetupStep(InstallStep):
 
     def rollback(self, ctx) -> None:
         """Remove the drop-in if this step wrote it."""
-        if not SUDOERS_PATH.exists() or not is_managed(ctx.sudo_password):
+        if not path_exists(ctx.sudo_password) or not is_managed(ctx.sudo_password):
             return
         try:
             from frappe_cli.utils.sudoers import disable

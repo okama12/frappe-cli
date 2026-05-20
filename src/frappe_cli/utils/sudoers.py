@@ -40,9 +40,35 @@ def _drop_in_content(user: str) -> str:
     )
 
 
+def path_exists(sudo_password: str | None = None) -> bool:
+    """Public alias for sudo-aware existence check."""
+    return _path_exists(sudo_password)
+
+
+def _path_exists(sudo_password: str | None = None) -> bool:
+    """Robustly check if SUDOERS_PATH exists.
+
+    ``/etc/sudoers.d/`` is mode 0750 root:root on Ubuntu/Debian, so a
+    non-root user gets ``PermissionError`` from ``Path.exists()`` (Python 3.12+).
+    Fall back to ``sudo -S test -e`` whenever the direct check fails.
+    """
+    try:
+        return SUDOERS_PATH.exists()
+    except OSError:
+        pass
+    if not sudo_password:
+        return False
+    result = subprocess.run(
+        ["sudo", "-S", "test", "-e", str(SUDOERS_PATH)],
+        input=(sudo_password + "\n").encode(),
+        capture_output=True,
+    )
+    return result.returncode == 0
+
+
 def _read_drop_in_content(sudo_password: str | None = None) -> str | None:
     """Return drop-in text, or None if the file is missing or unreadable."""
-    if not SUDOERS_PATH.exists():
+    if not _path_exists(sudo_password):
         return None
     try:
         return SUDOERS_PATH.read_text(encoding="utf-8")
@@ -96,7 +122,7 @@ def enable(sudo_password: str, *, dry_run: bool = False) -> None:
     if is_managed(sudo_password):
         return
 
-    if SUDOERS_PATH.exists():
+    if _path_exists(sudo_password):
         content = _read_drop_in_content(sudo_password)
         if content is None:
             raise RuntimeError(
@@ -153,7 +179,7 @@ def disable(sudo_password: str, *, dry_run: bool = False) -> None:
 
     Raises ``RuntimeError`` if the file exists but is not managed by frappe-cli.
     """
-    if not SUDOERS_PATH.exists():
+    if not _path_exists(sudo_password):
         return  # Nothing to do.
 
     if not is_managed(sudo_password):
