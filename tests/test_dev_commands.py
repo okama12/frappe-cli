@@ -165,7 +165,7 @@ def test_migrate_no_active_site(tmp_path):
         os.chdir(bench)
         result = runner.invoke(cli, ["migrate"])
         assert result.exit_code != 0
-        assert "fc use" in result.output
+        assert "fcli use" in result.output
     finally:
         os.chdir(orig_dir)
 

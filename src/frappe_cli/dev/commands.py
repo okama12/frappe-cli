@@ -62,7 +62,7 @@ def _require_bench() -> Path:
         raise click.ClickException(
             "Not inside a Frappe bench directory.\n"
             "  cd into your bench (or any subdirectory) and try again.\n"
-            "  Tip: use 'fc install wizard' to create a new bench."
+            "  Tip: use 'fcli install wizard' to create a new bench."
         )
     return root
 
@@ -73,7 +73,7 @@ def _require_site(bench_root: Path) -> str:
     if not site:
         raise click.ClickException(
             f"No active site set for bench '{bench_root.name}'.\n"
-            "  Run: fc use <site-name>"
+            "  Run: fcli use <site-name>"
         )
     return site
 
@@ -91,8 +91,8 @@ def use(site: str) -> None:
 
     \b
     Examples:
-        fc use test7.rashidiokama.com
-        fc use dev.local
+        fcli use test7.rashidiokama.com
+        fcli use dev.local
     """
     bench_root = _require_bench()
 
@@ -138,7 +138,7 @@ def context() -> None:
     if active_site:
         table.add_row("Site", active_site)
     else:
-        table.add_row("Site", "[yellow]not set — run: fc use <site>[/yellow]")
+        table.add_row("Site", "[yellow]not set — run: fcli use <site>[/yellow]")
     _console.print(table)
 
 
@@ -163,7 +163,7 @@ def sites() -> None:
     if active:
         _console.print(f"\n[dim]Active site:[/dim] [bold]{active}[/bold]")
     else:
-        _console.print("\n[dim]No active site. Run:[/dim] fc use <site>")
+        _console.print("\n[dim]No active site. Run:[/dim] fcli use <site>")
 
 
 # ── passthrough factory ───────────────────────────────────────────────────────

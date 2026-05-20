@@ -1,4 +1,4 @@
-"""Shared helpers for the `fc step` group.
+"""Shared helpers for the `fcli step` group.
 
 Builds a minimal `InstallContext` from CLI flags, runs `step.check(ctx)`
 to short-circuit when work is already done, and executes `step.run(ctx)`

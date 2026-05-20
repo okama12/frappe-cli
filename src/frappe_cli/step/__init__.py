@@ -1,16 +1,16 @@
-"""`fc step` — run any individual wizard step as a standalone command.
+"""`fcli step` — run any individual wizard step as a standalone command.
 
 Each command thinly wraps an `InstallStep` subclass (the same code the
-`fc install wizard` runs end-to-end) so behaviour — self-healing,
+`fcli install wizard` runs end-to-end) so behaviour — self-healing,
 verification, dry-run, rollback hooks — stays consistent between the
 automated wizard and ad-hoc / partial reruns.
 
 Examples:
-    fc step list                                       # show every step
-    fc step dns-multitenant --bench-name test5-bench
-    fc step production --bench-name test5-bench
-    fc step ssl --bench-name test5-bench --site-name test5.example.com
-    fc step site-create --bench-name my-bench --site-name my.example.com
+    fcli step list                                       # show every step
+    fcli step dns-multitenant --bench-name test5-bench
+    fcli step production --bench-name test5-bench
+    fcli step ssl --bench-name test5-bench --site-name test5.example.com
+    fcli step site-create --bench-name my-bench --site-name my.example.com
 """
 
 import click

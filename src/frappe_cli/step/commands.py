@@ -1,4 +1,4 @@
-"""One Click command per wizard step under `fc step <name>`.
+"""One Click command per wizard step under `fcli step <name>`.
 
 The wizard's `ALL_STEPS` is the canonical pipeline; this module wires each
 of those `InstallStep` classes to a Click command with bespoke flags so
@@ -411,7 +411,7 @@ def list_steps() -> None:
 
     console.print(table)
     console.print(
-        "\nRun any step with [bold]fc step <name> --help[/bold] to see flags."
+        "\nRun any step with [bold]fcli step <name> --help[/bold] to see flags."
     )
 
 

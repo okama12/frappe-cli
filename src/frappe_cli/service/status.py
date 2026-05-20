@@ -226,6 +226,6 @@ def status(bench_name, site_name):
             console.print(f"[red]SSL certificate not found for {site_name}[/red]")
             console.print(
                 "[dim]  If you just installed SSL, try: "
-                f"fc ssl setup --site-name {site_name}[/dim]"
+                f"fcli ssl setup --site-name {site_name}[/dim]"
             )
     logger.info("[service] Status check completed.")
