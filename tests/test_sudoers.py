@@ -60,6 +60,27 @@ class TestSudoersUtil:
 
             assert is_managed() is False
 
+    def test_is_managed_reads_root_owned_file_via_sudo(self, tmp_path):
+        drop_in = tmp_path / "frappe-cli"
+        drop_in.write_text("# Managed by frappe-cli\nrule\n")
+        with (
+            patch("frappe_cli.utils.sudoers.SUDOERS_PATH", drop_in),
+            patch.object(
+                type(drop_in), "read_text", side_effect=PermissionError(13, "denied")
+            ),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = subprocess.CompletedProcess(
+                [],
+                0,
+                stdout=b"# Managed by frappe-cli\nrule\n",
+                stderr=b"",
+            )
+            from frappe_cli.utils.sudoers import is_managed
+
+            assert is_managed("secret") is True
+        mock_run.assert_called_once()
+
     def test_enable_calls_visudo_and_install(self, tmp_path):
         fake_path = tmp_path / "frappe-cli"
         with (
@@ -188,7 +209,7 @@ class TestSudoersSetupStep:
         ctx = make_ctx(enable_passwordless_restart=True, dry_run=True)
         with patch("frappe_cli.install.steps.sudoers.enable") as mock_enable:
             step.run(ctx)
-        mock_enable.assert_called_once_with("secret", dry_run=True)
+        mock_enable.assert_not_called()
 
     def test_rollback_calls_disable_when_managed(self, tmp_path):
         from frappe_cli.install.steps.sudoers import SudoersSetupStep
@@ -215,7 +236,9 @@ class TestFpSudoCommands:
         with (
             patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=True),
             patch("frappe_cli.dev.sudo_commands.is_managed", return_value=True),
+            patch("frappe_cli.dev.sudo_commands.SUDOERS_PATH") as mock_path,
         ):
+            mock_path.exists.return_value = True
             result = runner.invoke(cli, ["sudo", "status"])
         assert result.exit_code == 0
         assert "enabled" in result.output.lower()
@@ -230,14 +253,19 @@ class TestFpSudoCommands:
 
     def test_enable_restart_dry_run(self):
         runner = CliRunner()
-        with (patch("frappe_cli.dev.sudo_commands.is_managed", return_value=False),):
-            result = runner.invoke(cli, ["sudo", "enable-restart", "--dry-run"])
+        result = runner.invoke(cli, ["sudo", "enable-restart", "--dry-run"])
         assert result.exit_code == 0
         assert "would write" in result.output.lower()
 
     def test_enable_restart_already_managed(self):
         runner = CliRunner()
-        with patch("frappe_cli.dev.sudo_commands.is_managed", return_value=True):
+        with (
+            patch(
+                "frappe_cli.dev.sudo_commands.Prompt.ask",
+                return_value="secret",
+            ),
+            patch("frappe_cli.dev.sudo_commands.is_managed", return_value=True),
+        ):
             result = runner.invoke(cli, ["sudo", "enable-restart"])
         assert result.exit_code == 0
         assert "already enabled" in result.output.lower()
@@ -246,10 +274,7 @@ class TestFpSudoCommands:
         fake_path = tmp_path / "frappe-cli"
         fake_path.write_text("# Managed by frappe-cli\nrule\n")
         runner = CliRunner()
-        with (
-            patch("frappe_cli.dev.sudo_commands.SUDOERS_PATH", fake_path),
-            patch("frappe_cli.dev.sudo_commands.is_managed", return_value=True),
-        ):
+        with patch("frappe_cli.dev.sudo_commands.SUDOERS_PATH", fake_path):
             result = runner.invoke(cli, ["sudo", "disable-restart", "--dry-run"])
         assert result.exit_code == 0
         assert "would remove" in result.output.lower()

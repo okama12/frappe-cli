@@ -78,6 +78,7 @@ def wizard(resume, dry_run, debug, skip_ssl):
                         app_branch=ctx.app_branch,
                         ssl_email=ctx.ssl_email,
                         ubuntu_version=ctx.ubuntu_version,
+                        enable_passwordless_restart=ctx.enable_passwordless_restart,
                         completed_steps=list(completed_steps),
                     )
                 )

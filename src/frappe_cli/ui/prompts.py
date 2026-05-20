@@ -144,6 +144,16 @@ def collect_credentials_for_resume(
         else Prompt.ask("  Frappe site admin password", password=True)
     )
 
+    if "sudoers_setup" not in done:
+        console.print("\n  [bold]── Daily Developer Workflow ──[/bold]")
+        enable_passwordless_restart = Confirm.ask(
+            "  Allow passwordless 'fp restart' for this user?\n"
+            "  [dim](adds a sudoers rule so bench restart never prompts for a password)[/dim]",
+            default=state.enable_passwordless_restart or True,
+        )
+    else:
+        enable_passwordless_restart = state.enable_passwordless_restart
+
     return InstallContext(
         bench_name=state.bench_name,
         site_name=state.site_name,
@@ -158,4 +168,5 @@ def collect_credentials_for_resume(
         dry_run=dry_run,
         debug=debug,
         skip_ssl=skip_ssl,
+        enable_passwordless_restart=enable_passwordless_restart,
     )

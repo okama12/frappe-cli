@@ -14,6 +14,7 @@ class InstallState:
     app_branch: str = ""
     ssl_email: str = ""
     ubuntu_version: str = ""
+    enable_passwordless_restart: bool = False
     completed_steps: list[str] = field(default_factory=list)
 
 

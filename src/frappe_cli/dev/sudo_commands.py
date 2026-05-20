@@ -41,7 +41,7 @@ def sudo_status() -> None:
             f"[green]✓[/green] Passwordless restart is [bold]enabled[/bold]"
             f"  [dim](user: {user})[/dim]"
         )
-        if is_managed():
+        if SUDOERS_PATH.exists() and is_managed():
             _console.print(f"  [dim]Managed by frappe-cli → {SUDOERS_PATH}[/dim]")
         else:
             _console.print(
@@ -72,10 +72,6 @@ def enable_restart(dry_run: bool) -> None:
         fp sudo enable-restart
         fp sudo enable-restart --dry-run
     """
-    if is_managed():
-        _console.print("[green]✓[/green] Already enabled — nothing to do.")
-        return
-
     if dry_run:
         user = getpass.getuser()
         _console.print(
@@ -85,6 +81,10 @@ def enable_restart(dry_run: bool) -> None:
         return
 
     sudo_password = Prompt.ask("  Sudo password", password=True)
+
+    if is_managed(sudo_password):
+        _console.print("[green]✓[/green] Already enabled — nothing to do.")
+        return
 
     try:
         enable(sudo_password)
@@ -119,17 +119,17 @@ def disable_restart(dry_run: bool) -> None:
         )
         return
 
-    if not is_managed():
-        raise click.ClickException(
-            f"{SUDOERS_PATH} was not created by frappe-cli.\n"
-            "  Remove it manually to avoid accidentally deleting a custom rule."
-        )
-
     if dry_run:
         _console.print(f"[dim][dry-run] Would remove {SUDOERS_PATH}[/dim]")
         return
 
     sudo_password = Prompt.ask("  Sudo password", password=True)
+
+    if not is_managed(sudo_password):
+        raise click.ClickException(
+            f"{SUDOERS_PATH} was not created by frappe-cli.\n"
+            "  Remove it manually to avoid accidentally deleting a custom rule."
+        )
 
     try:
         disable(sudo_password)

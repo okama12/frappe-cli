@@ -10,6 +10,7 @@ Safety rules this module enforces:
 - Always validate with ``visudo -c`` before installing.
 - Never overwrite a drop-in that was NOT written by this tool (header check).
 - Scope to one user + one binary (least privilege).
+- Read root-owned drop-ins via ``sudo cat`` (mode 0440 is not user-readable).
 """
 
 from __future__ import annotations
@@ -39,12 +40,37 @@ def _drop_in_content(user: str) -> str:
     )
 
 
-def is_managed() -> bool:
-    """Return True when the drop-in exists and was written by frappe-cli."""
+def _read_drop_in_content(sudo_password: str | None = None) -> str | None:
+    """Return drop-in text, or None if the file is missing or unreadable."""
+    if not SUDOERS_PATH.exists():
+        return None
     try:
-        return SUDOERS_PATH.read_text().startswith(_MANAGED_MARKER)
+        return SUDOERS_PATH.read_text(encoding="utf-8")
+    except PermissionError:
+        pass
     except OSError:
+        return None
+    if not sudo_password:
+        return None
+    result = subprocess.run(
+        ["sudo", "-S", "cat", str(SUDOERS_PATH)],
+        input=(sudo_password + "\n").encode(),
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        return None
+    out = result.stdout
+    if isinstance(out, bytes):
+        return out.decode(errors="replace")
+    return out or None
+
+
+def is_managed(sudo_password: str | None = None) -> bool:
+    """Return True when the drop-in exists and was written by frappe-cli."""
+    content = _read_drop_in_content(sudo_password)
+    if content is None:
         return False
+    return content.lstrip().startswith(_MANAGED_MARKER)
 
 
 def is_enabled() -> bool:
@@ -62,18 +88,29 @@ def enable(sudo_password: str, *, dry_run: bool = False) -> None:
     Raises ``RuntimeError`` if:
     - ``visudo -c`` rejects the file
     - The existing drop-in was not created by this tool (to avoid overwriting)
+    - The drop-in exists but cannot be read even with sudo
     """
-    if SUDOERS_PATH.exists() and not is_managed():
-        raise RuntimeError(
-            f"{SUDOERS_PATH} already exists but was not created by frappe-cli.\n"
-            "  Edit it manually or remove it first."
-        )
+    if dry_run:
+        return
+
+    if is_managed(sudo_password):
+        return
+
+    if SUDOERS_PATH.exists():
+        content = _read_drop_in_content(sudo_password)
+        if content is None:
+            raise RuntimeError(
+                f"Cannot read {SUDOERS_PATH} (sudo failed or wrong password).\n"
+                "  Re-enter your sudo password and try again."
+            )
+        if not content.lstrip().startswith(_MANAGED_MARKER):
+            raise RuntimeError(
+                f"{SUDOERS_PATH} already exists but was not created by frappe-cli.\n"
+                "  Edit it manually or remove it first."
+            )
 
     user = getpass.getuser()
     content = _drop_in_content(user)
-
-    if dry_run:
-        return
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".sudoers", delete=False) as tmp:
         tmp.write(content)
@@ -119,7 +156,7 @@ def disable(sudo_password: str, *, dry_run: bool = False) -> None:
     if not SUDOERS_PATH.exists():
         return  # Nothing to do.
 
-    if not is_managed():
+    if not is_managed(sudo_password):
         raise RuntimeError(
             f"{SUDOERS_PATH} was not created by frappe-cli.\n"
             "  Remove it manually to avoid accidentally deleting a custom rule."
@@ -128,7 +165,7 @@ def disable(sudo_password: str, *, dry_run: bool = False) -> None:
     if dry_run:
         return
 
-    _sudo_run(["rm", str(SUDOERS_PATH)], sudo_password)
+    _sudo_run(["rm", "-f", str(SUDOERS_PATH)], sudo_password)
 
 
 def _sudo_run(cmd: list[str], sudo_password: str) -> None:
@@ -140,6 +177,6 @@ def _sudo_run(cmd: list[str], sudo_password: str) -> None:
     )
     if result.returncode != 0:
         raise RuntimeError(
-            f"Command failed: {' '.join(cmd)}\n"
+            f"Command failed: sudo {' '.join(cmd)}\n"
             + result.stderr.decode(errors="replace")
         )
