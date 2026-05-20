@@ -117,7 +117,9 @@ def status():
     if bench_detected:
         table.add_row("Bench", "✓ Found", f"{bench_name} at {search_path}")
     else:
-        table.add_row("Bench", "✗ Not found", "Run 'fc install wizard' to set up a new bench")
+        table.add_row(
+            "Bench", "✗ Not found", "Run 'fc install wizard' to set up a new bench"
+        )
 
     # Check for common services
     import subprocess

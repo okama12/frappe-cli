@@ -99,7 +99,9 @@ def use(site: str) -> None:
     if not site_exists(bench_root, site):
         available = list_sites(bench_root)
         hint = (
-            ("  Available: " + ", ".join(available)) if available else "  No sites found."
+            ("  Available: " + ", ".join(available))
+            if available
+            else "  No sites found."
         )
         raise click.ClickException(
             f"Site '{site}' not found in bench '{bench_root.name}'.\n{hint}"
