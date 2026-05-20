@@ -66,14 +66,14 @@ def print_success(console: Console, ctx) -> None:
         )
     )
     console.print("\n[dim]Next steps:[/dim]")
-    console.print("  [cyan]fcli service status[/cyan]  — check running services")
-    console.print("  [cyan]fcli site backup[/cyan]     — take a manual backup")
+    console.print("  [cyan]fp service status[/cyan]  — check running services")
+    console.print("  [cyan]fp site backup[/cyan]     — take a manual backup")
     if ctx.skip_ssl:
         console.print(
-            "  [cyan]fcli install wizard[/cyan]  — re-run without --skip-ssl to add SSL"
+            "  [cyan]fp install wizard[/cyan]  — re-run without --skip-ssl to add SSL"
         )
     else:
-        console.print("  [cyan]fcli ssl setup[/cyan]       — renew SSL certificate")
+        console.print("  [cyan]fp ssl setup[/cyan]       — renew SSL certificate")
     console.print(
         "\n[dim]Made with care by Rashidi Okama in Tanzania · "
         "if this saved you time, star the repo:[/dim] "
@@ -88,7 +88,7 @@ def print_error(
     if hint.strip():
         parts.append(f"\n[dim]stderr:[/dim] {hint.strip()[:300]}")
     parts.append("\nFix the issue then re-run:")
-    parts.append("  [cyan]fcli install wizard --resume[/cyan]")
+    parts.append("  [cyan]fp install wizard --resume[/cyan]")
     console.print(
         _fit_panel(
             "\n".join(parts),

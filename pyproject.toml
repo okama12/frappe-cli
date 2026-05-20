@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "frappe-cli"
-version = "1.0.3"
+version = "1.0.5"
 description = "Professional CLI for Frappe deployment and management."
 authors = ["Rashidi Okama <rashidokama@gmail.com>"]
 readme = "README.md"
@@ -42,8 +42,8 @@ mypy = "^1.7.0"
 ruff = "^0.3.0"
 
 [tool.poetry.scripts]
-fcli = "frappe_cli.cli:cli"
-fc = "frappe_cli.cli:cli"  # zsh/fish only — conflicts with bash builtin `fc`
+fp = "frappe_cli.cli:cli"
+fcli = "frappe_cli.cli:cli"  # alias for backward compatibility
 
 [tool.black]
 line-length = 88

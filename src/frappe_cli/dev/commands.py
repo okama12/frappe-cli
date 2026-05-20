@@ -1,4 +1,4 @@
-"""Dev-workflow Click commands added to the ``fc`` entry point.
+"""Dev-workflow Click commands added to the ``fp`` entry point.
 
 Commands
 --------
@@ -62,7 +62,7 @@ def _require_bench() -> Path:
         raise click.ClickException(
             "Not inside a Frappe bench directory.\n"
             "  cd into your bench (or any subdirectory) and try again.\n"
-            "  Tip: use 'fcli install wizard' to create a new bench."
+            "  Tip: use 'fp install wizard' to create a new bench."
         )
     return root
 
@@ -73,12 +73,12 @@ def _require_site(bench_root: Path) -> str:
     if not site:
         raise click.ClickException(
             f"No active site set for bench '{bench_root.name}'.\n"
-            "  Run: fcli use <site-name>"
+            "  Run: fp use <site-name>"
         )
     return site
 
 
-# ── fc use ────────────────────────────────────────────────────────────────────
+# ── fp use ────────────────────────────────────────────────────────────────────
 
 
 @click.command("use")
@@ -91,8 +91,8 @@ def use(site: str) -> None:
 
     \b
     Examples:
-        fcli use test7.rashidiokama.com
-        fcli use dev.local
+        fp use test7.rashidiokama.com
+        fp use dev.local
     """
     bench_root = _require_bench()
 
@@ -114,7 +114,7 @@ def use(site: str) -> None:
     )
 
 
-# ── fc context ────────────────────────────────────────────────────────────────
+# ── fp context ────────────────────────────────────────────────────────────────
 
 
 @click.command("context")
@@ -138,11 +138,11 @@ def context() -> None:
     if active_site:
         table.add_row("Site", active_site)
     else:
-        table.add_row("Site", "[yellow]not set — run: fcli use <site>[/yellow]")
+        table.add_row("Site", "[yellow]not set — run: fp use <site>[/yellow]")
     _console.print(table)
 
 
-# ── fc sites ──────────────────────────────────────────────────────────────────
+# ── fp sites ──────────────────────────────────────────────────────────────────
 
 
 @click.command("sites")
@@ -163,7 +163,7 @@ def sites() -> None:
     if active:
         _console.print(f"\n[dim]Active site:[/dim] [bold]{active}[/bold]")
     else:
-        _console.print("\n[dim]No active site. Run:[/dim] fcli use <site>")
+        _console.print("\n[dim]No active site. Run:[/dim] fp use <site>")
 
 
 # ── passthrough factory ───────────────────────────────────────────────────────

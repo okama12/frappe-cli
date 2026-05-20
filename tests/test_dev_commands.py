@@ -27,11 +27,11 @@ def _make_bench(tmp_path: Path, sites: list[str] | None = None) -> Path:
     return bench
 
 
-# ── fc use ────────────────────────────────────────────────────────────────────
+# ── fp use ────────────────────────────────────────────────────────────────────
 
 
 def test_use_outside_bench(tmp_path):
-    """fc use should abort when not inside a bench directory."""
+    """fp use should abort when not inside a bench directory."""
     runner = CliRunner()
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ["use", "mysite.local"])
@@ -40,7 +40,7 @@ def test_use_outside_bench(tmp_path):
 
 
 def test_use_site_not_found(tmp_path):
-    """fc use should abort when the named site does not exist in the bench."""
+    """fp use should abort when the named site does not exist in the bench."""
     bench = _make_bench(tmp_path)
     runner = CliRunner()
     with patch.dict(os.environ, {}):
@@ -52,7 +52,7 @@ def test_use_site_not_found(tmp_path):
 
 
 def test_use_writes_fp_yaml(tmp_path):
-    """fc use should write the site to .fp.yaml in the bench root."""
+    """fp use should write the site to .fp.yaml in the bench root."""
     bench = _make_bench(tmp_path, sites=["dev.local"])
     runner = CliRunner()
     orig_dir = os.getcwd()
@@ -69,7 +69,7 @@ def test_use_writes_fp_yaml(tmp_path):
 
 
 def test_use_works_from_subdirectory(tmp_path):
-    """fc use should detect the bench root even from a nested subdirectory."""
+    """fp use should detect the bench root even from a nested subdirectory."""
     bench = _make_bench(tmp_path, sites=["dev.local"])
     subdir = bench / "apps" / "my_app"
     subdir.mkdir(parents=True)
@@ -85,11 +85,11 @@ def test_use_works_from_subdirectory(tmp_path):
         os.chdir(orig_dir)
 
 
-# ── fc context ────────────────────────────────────────────────────────────────
+# ── fp context ────────────────────────────────────────────────────────────────
 
 
 def test_context_no_bench(tmp_path):
-    """fc context should print a helpful message when not inside a bench."""
+    """fp context should print a helpful message when not inside a bench."""
     runner = CliRunner()
     with runner.isolated_filesystem():
         result = runner.invoke(cli, ["context"])
@@ -98,7 +98,7 @@ def test_context_no_bench(tmp_path):
 
 
 def test_context_shows_bench_and_site(tmp_path):
-    """fc context should show bench path and active site when set."""
+    """fp context should show bench path and active site when set."""
     bench = _make_bench(tmp_path, sites=["dev.local"])
     fp = bench / ".fp.yaml"
     fp.write_text(yaml.dump({"site": "dev.local"}))
@@ -116,11 +116,11 @@ def test_context_shows_bench_and_site(tmp_path):
         os.chdir(orig_dir)
 
 
-# ── fc sites ──────────────────────────────────────────────────────────────────
+# ── fp sites ──────────────────────────────────────────────────────────────────
 
 
 def test_sites_lists_all(tmp_path):
-    """fc sites should list all sites found in the bench."""
+    """fp sites should list all sites found in the bench."""
     bench = _make_bench(tmp_path, sites=["alpha.local", "beta.local"])
     runner = CliRunner()
     orig_dir = os.getcwd()
@@ -134,11 +134,11 @@ def test_sites_lists_all(tmp_path):
         os.chdir(orig_dir)
 
 
-# ── passthrough: fc migrate (site-scoped) ────────────────────────────────────
+# ── passthrough: fp migrate (site-scoped) ────────────────────────────────────
 
 
 def test_migrate_injects_site(tmp_path):
-    """fc migrate should run 'bench --site <active> migrate' in the bench root."""
+    """fp migrate should run 'bench --site <active> migrate' in the bench root."""
     bench = _make_bench(tmp_path, sites=["dev.local"])
     (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
     runner = CliRunner()
@@ -157,7 +157,7 @@ def test_migrate_injects_site(tmp_path):
 
 
 def test_migrate_no_active_site(tmp_path):
-    """fc migrate should abort with a helpful message when no site is set."""
+    """fp migrate should abort with a helpful message when no site is set."""
     bench = _make_bench(tmp_path)
     runner = CliRunner()
     orig_dir = os.getcwd()
@@ -165,16 +165,16 @@ def test_migrate_no_active_site(tmp_path):
         os.chdir(bench)
         result = runner.invoke(cli, ["migrate"])
         assert result.exit_code != 0
-        assert "fcli use" in result.output
+        assert "fp use" in result.output
     finally:
         os.chdir(orig_dir)
 
 
-# ── passthrough: fc restart (bench-scoped, no site) ──────────────────────────
+# ── passthrough: fp restart (bench-scoped, no site) ──────────────────────────
 
 
 def test_restart_does_not_inject_site(tmp_path):
-    """fc restart should run 'bench restart' without --site even if a site is active."""
+    """fp restart should run 'bench restart' without --site even if a site is active."""
     bench = _make_bench(tmp_path, sites=["dev.local"])
     (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
     runner = CliRunner()

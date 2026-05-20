@@ -24,7 +24,7 @@ __version__ = importlib.metadata.version("frappe-cli")
 @click.option("--config", type=click.Path(exists=True), help="Path to YAML config file")
 @click.pass_context
 def cli(ctx, config):
-    """Frappe CLI (fcli) - Install, operate, and develop with Frappe.
+    """Frappe CLI (fp) - Install, operate, and develop with Frappe.
 
     This CLI provides a professional interface for managing Frappe applications.
     It automatically detects your Frappe bench environment and provides
@@ -118,7 +118,7 @@ def status():
         table.add_row("Bench", "✓ Found", f"{bench_name} at {search_path}")
     else:
         table.add_row(
-            "Bench", "✗ Not found", "Run 'fcli install wizard' to set up a new bench"
+            "Bench", "✗ Not found", "Run 'fp install wizard' to set up a new bench"
         )
 
     # Check for common services
