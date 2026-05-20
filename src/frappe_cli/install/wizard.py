@@ -28,7 +28,7 @@ def wizard(resume, dry_run, debug, skip_ssl):
     if resume:
         if not state_exists():
             console.print(
-                "[red]No previous install state found. Run 'frappe install wizard'.[/red]"
+                "[red]No previous install state found. Run 'fc install wizard'.[/red]"
             )
             sys.exit(1)
         state = load_state()

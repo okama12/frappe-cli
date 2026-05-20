@@ -5,6 +5,7 @@ import click
 from frappe_cli.app import app
 from frappe_cli.backup import backup
 from frappe_cli.config import config
+from frappe_cli.dev.commands import ALL_DEV_COMMANDS
 from frappe_cli.firewall import firewall
 from frappe_cli.install import install
 from frappe_cli.maintenance import maintenance
@@ -23,11 +24,11 @@ __version__ = importlib.metadata.version("frappe-cli")
 @click.option("--config", type=click.Path(exists=True), help="Path to YAML config file")
 @click.pass_context
 def cli(ctx, config):
-    """Frappe Installer CLI - Automate Frappe deployment and management.
+    """Frappe CLI (fc) - Install, operate, and develop with Frappe.
 
-    This CLI provides a professional interface for managing Frappe applications,
-    similar to Flask CLI or Poetry. It automatically detects your Frappe environment
-    and provides contextual commands.
+    This CLI provides a professional interface for managing Frappe applications.
+    It automatically detects your Frappe bench environment and provides
+    contextual commands for both production installs and daily development.
     """
     ctx.ensure_object(dict)
     # Config loading is currently not used
@@ -116,7 +117,7 @@ def status():
     if bench_detected:
         table.add_row("Bench", "✓ Found", f"{bench_name} at {search_path}")
     else:
-        table.add_row("Bench", "✗ Not found", "Run 'frappe bench init' to create one")
+        table.add_row("Bench", "✗ Not found", "Run 'fc install wizard' to set up a new bench")
 
     # Check for common services
     import subprocess
@@ -165,6 +166,10 @@ cli.add_command(rollback)
 cli.add_command(config)
 cli.add_command(monitor)
 cli.add_command(optimize)
+
+# Dev workflow commands (bench context + passthrough)
+for _dev_cmd in ALL_DEV_COMMANDS:
+    cli.add_command(_dev_cmd)
 
 if __name__ == "__main__":
     cli(obj={})

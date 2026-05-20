@@ -3,23 +3,53 @@
 [![PyPI version](https://img.shields.io/pypi/v/frappe-cli.svg)](https://pypi.org/project/frappe-cli/)
 [![Python](https://img.shields.io/pypi/pyversions/frappe-cli.svg)](https://pypi.org/project/frappe-cli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen.svg)](#testing)
+[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen.svg)](#development)
 
-**A production-ready CLI that installs and operates [Frappe](https://frappeframework.com/) / [ERPNext](https://erpnext.com/) on Ubuntu — from a bare VPS to a working HTTPS site in one command.**
+```
+  ███████╗ ██████╗
+  ██╔════╝██╔════╝
+  █████╗  ██║
+  ██╔══╝  ██║
+  ██║     ╚██████╗
+  ╚═╝      ╚═════╝  frappe-cli  ·  fc
+```
+
+**A production-ready CLI that installs and operates [Frappe](https://frappeframework.com/) / [ERPNext](https://erpnext.com/) — from a bare VPS to a working HTTPS site in one command. Also your daily `bench` shortcut.**
 
 Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https://rich.readthedocs.io/). Every step is independently runnable, self-healing, and idempotent — safe to re-run on partially-installed servers.
 
 ---
 
+## Two tools in one
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          fc  (frappe-cli)                           │
+├──────────────────────────────┬──────────────────────────────────────┤
+│   🏗  INSTALLER / OPS        │   ⚡  DAILY DEV WORKFLOW             │
+│                              │                                      │
+│  fc install wizard           │  fc use <site>     ← set context     │
+│  fc step <name>              │  fc migrate        ← auto --site     │
+│  fc ssl setup/list           │  fc console                          │
+│  fc service status           │  fc restart                          │
+│  fc backup setup             │  fc build / watch                    │
+│  fc firewall setup           │  fc get-app <url>                    │
+│                              │  fc sites / fc context               │
+└──────────────────────────────┴──────────────────────────────────────┘
+```
+
+---
+
 ## Highlights
 
-- **One-command bootstrap:** `frappe install wizard` provisions a fresh Ubuntu VPS end-to-end (MariaDB → Redis → Node → bench → site → ERPNext → nginx → supervisor → SSL).
-- **17 individually runnable steps:** `frappe step <name>` lets you re-run, debug, or compose any wizard step on its own (same code path as the wizard).
-- **Multi-bench friendly:** works on fresh and non-fresh VPS — auto-detects existing bench installs and existing bench directories.
+- **One-command bootstrap:** `fc install wizard` provisions a fresh Ubuntu VPS end-to-end (MariaDB → Redis → Node → bench → site → ERPNext → nginx → supervisor → SSL).
+- **17 individually runnable steps:** `fc step <name>` lets you re-run, debug, or compose any wizard step on its own (same code path as the wizard).
+- **Context-aware dev workflow:** `fc use mysite.local` remembers your active bench + site — then every `bench` command becomes one word.
+- **Multi-bench friendly:** works on fresh and non-fresh VPS — auto-detects existing bench installs and directories.
 - **Self-healing:** automatically repairs the supervisor symlink that vanilla `bench setup production` sometimes misses on multi-bench hosts.
 - **Hard verification:** polls `supervisorctl status` for RUNNING and pings bench Redis for PONG before declaring success.
-- **Resumable:** the wizard saves progress; if a step fails you can fix and `frappe install wizard --resume`.
-- **Operator-friendly utilities:** `frappe ssl list/setup`, `frappe service status`, `frappe backup setup`, `frappe firewall setup`, and more.
+- **Resumable:** the wizard saves progress; if a step fails you can fix and `fc install wizard --resume`.
+- **Operator-friendly utilities:** `fc ssl list/setup`, `fc service status`, `fc backup setup`, `fc firewall setup`, and more.
 
 ---
 
@@ -29,8 +59,6 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 
 ### With [uv](https://docs.astral.sh/uv/) (recommended)
 
-`uv` installs CLIs in isolated environments, similar to `pipx`, and is extremely fast.
-
 ```bash
 # Install uv (if you don't have it yet)
 curl -LsSf https://astral.sh/uv/install.sh | sh
@@ -39,8 +67,8 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install frappe-cli
 
 # Verify
-frappe --version
-frappe --help
+fc --version
+fc --help
 ```
 
 To upgrade later:
@@ -52,21 +80,16 @@ uv tool upgrade frappe-cli
 ### With pip
 
 ```bash
-# User install (no sudo required)
 pip install --user frappe-cli
 export PATH="$HOME/.local/bin:$PATH"
-
-# Or system-wide
-sudo pip install frappe-cli
-
-frappe --help
+fc --help
 ```
 
 ### With pipx
 
 ```bash
 pipx install frappe-cli
-frappe --help
+fc --help
 ```
 
 ### Requirements
@@ -85,6 +108,34 @@ frappe --help
 
 The fastest path from a clean Ubuntu server to a working HTTPS Frappe site:
 
+```
+Fresh Ubuntu VPS
+      │
+      ▼
+  apt install python3-pip curl
+      │
+      ▼
+  uv tool install frappe-cli
+      │
+      ▼
+  fc install wizard          ← interactive prompts, ~30-60 min
+      │
+      ├─ system-update
+      ├─ system-deps
+      ├─ nodejs
+      ├─ mariadb-install + mariadb-secure
+      ├─ redis
+      ├─ wkhtmltopdf
+      ├─ bench-install + bench-init
+      ├─ site-create
+      ├─ get-app + install-app
+      ├─ production (nginx + supervisor)
+      └─ ssl (Let's Encrypt)
+            │
+            ▼
+  ✓ https://erp.example.com  ← live in one command
+```
+
 ```bash
 sudo apt update && sudo apt install -y python3-pip curl
 
@@ -93,7 +144,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install frappe-cli
 
 # 2. Run the interactive wizard (≈30–60 min depending on the host)
-frappe install wizard
+fc install wizard
 ```
 
 You'll be prompted for:
@@ -113,7 +164,7 @@ You'll be prompted for:
 If a step fails, fix the issue and resume from where it stopped:
 
 ```bash
-frappe install wizard --resume
+fc install wizard --resume
 ```
 
 When it's done:
@@ -124,16 +175,98 @@ curl -I https://erp.example.com   # HTTP/2 200, served by nginx, valid Let's Enc
 
 ---
 
+## ⚡ Daily dev workflow
+
+This is where `fc` really shines. Instead of typing `bench --site <long.site.name> migrate` every time, you set your context once and then use short commands.
+
+```
+  ~/my-bench/                    ← bench root
+  ├── apps/
+  │   ├── frappe/
+  │   └── my_custom_app/         ← you are here, deep in code
+  ├── sites/
+  │   ├── dev.local/
+  │   └── staging.example.com/
+  └── .fp.yaml                   ← fc writes: site: dev.local
+```
+
+### Step 1 — set your active site (once per session)
+
+Works from any directory inside the bench — bench root, `apps/`, `apps/my_app/`, etc.
+
+```bash
+cd ~/my-bench
+fc use dev.local
+# ✓ Active site set to dev.local  (bench: my-bench)
+```
+
+### Step 2 — run bench commands without the boilerplate
+
+```bash
+# Before fc:
+bench --site dev.local migrate
+bench --site dev.local console
+bench --site dev.local clear-cache
+
+# With fc:
+fc migrate
+fc console
+fc clear-cache
+```
+
+### Switching between sites
+
+You never "lose" a site — just `use` a different one. The old site is still there.
+
+```
+fc sites
+  ● dev.local          ← active (green dot)
+    staging.example.com
+
+fc use staging.example.com
+# ✓ Active site set to staging.example.com
+
+fc migrate            → bench --site staging.example.com migrate
+```
+
+### All dev commands
+
+```
+  fc use <site>         Write active site to .fp.yaml
+  fc context            Show current bench + active site
+  fc sites              List all sites (active site marked with ●)
+
+  ── site-scoped (auto-injects --site) ─────────────────────────────
+  fc migrate            Sync schema, run patches, rebuild assets
+  fc console            IPython console for the active site
+  fc install-app <app>  Install app on active site
+  fc uninstall-app <a>  Remove app from active site
+  fc list-apps          Apps installed on active site
+  fc clear-cache        Clear framework cache
+  fc mariadb            MariaDB shell for active site
+
+  ── bench-scoped (no --site needed) ───────────────────────────────
+  fc restart            Restart supervisor / systemd processes
+  fc build              Build JS + CSS assets
+  fc start              Start dev server (Procfile)
+  fc watch              Watch + recompile JS/CSS on change
+  fc get-app <url>      Download app from git URL
+```
+
+> **How it works:** `fc` detects the bench root by walking up from your current directory looking for both a `sites/` and `apps/` folder. The active site is stored in `<bench_root>/.fp.yaml` — a plain YAML file you can inspect or edit directly. The wizard's state (`~/.frappe-cli-state.json`) is completely separate and untouched.
+
+---
+
 ## Command structure
 
 ```
-frappe <group> <command> [options]
+fc <group> <command> [options]
 ```
 
 | Group | What it does |
 |---|---|
 | `install wizard` | End-to-end automated installer with state + resume |
-| **`step`** | **Run any individual wizard step on its own** (recommended for debugging / partial setups) |
+| **`step`** | **Run any individual wizard step on its own** |
 | `ssl` | Issue / list Let's Encrypt certificates for existing sites |
 | `site` | Create, list, backup, restore sites |
 | `app` | Get / install / update / remove Frappe apps |
@@ -141,10 +274,13 @@ frappe <group> <command> [options]
 | `backup` | Manual + scheduled backups (optionally to an external HD) |
 | `firewall` | UFW configuration with secure defaults |
 | `maintenance` | Log rotation, etc. |
-| `monitor` | Live logs and system health (stubs / growing) |
-| `optimize` | Performance tuning (stubs / growing) |
+| `monitor` | Live logs and system health |
+| `optimize` | Performance tuning |
 | `rollback` | Restore from backup, uninstall site, etc. |
 | `config` | YAML config get/set/validate |
+| **`use`** | **Set active bench + site context** |
+| **`context`** | **Show current bench + active site** |
+| **`sites`** | **List sites in the current bench** |
 
 Every command supports `--help` and many support `--dry-run` and `--debug`.
 
@@ -156,13 +292,13 @@ Every command supports `--help` and many support `--dry-run` and `--debug`.
 
 ```bash
 # See all sites and which are still on HTTP
-frappe ssl list
+fc ssl list
 
 # Issue an HTTPS cert for one site (auto-detects the owning bench)
-frappe ssl setup --site-name erp.example.com
+fc ssl setup --site-name erp.example.com
 
 # First time ever using Let's Encrypt on this host? Provide an email
-frappe ssl setup --site-name new.example.com --email you@example.com
+fc ssl setup --site-name new.example.com --email you@example.com
 ```
 
 ### Re-run a single wizard step
@@ -171,57 +307,57 @@ Every step the wizard runs is also exposed as a standalone command. Same code, s
 
 ```bash
 # Show all steps in execution order
-frappe step list
+fc step list
 
 # Run just SSL for one site
-frappe step ssl --bench-name my-bench --site-name erp.example.com
+fc step ssl --bench-name my-bench --site-name erp.example.com
 
 # Re-do the production setup (nginx + supervisor) for a bench
-frappe step production --bench-name my-bench
+fc step production --bench-name my-bench
 
 # Try a step without executing anything
-frappe step production --bench-name my-bench --dry-run
+fc step production --bench-name my-bench --dry-run
 
 # Force a step even when check() says "already done"
-frappe step ssl --bench-name my-bench --site-name erp.example.com --force
+fc step ssl --bench-name my-bench --site-name erp.example.com --force
 ```
 
 The full step catalogue:
 
 | # | Command | Purpose |
 |---|---|---|
-| 1 | `frappe step system-update` | `apt-get update && upgrade` |
-| 2 | `frappe step system-deps` | Frappe's required apt packages |
-| 3 | `frappe step uv-check` | Ensure `uv` is installed |
-| 4 | `frappe step nodejs` | Install Node.js + Yarn |
-| 5 | `frappe step mariadb-install` | Install MariaDB + utf8mb4 config |
-| 6 | `frappe step mariadb-secure` | Secure MariaDB root user |
-| 7 | `frappe step redis` | Install Redis server |
-| 8 | `frappe step wkhtmltopdf` | Install wkhtmltopdf + X11 fonts |
-| 9 | `frappe step bench-install` | `uv tool install frappe-bench` |
-| 10 | `frappe step bench-init` | `bench init <name> --frappe-branch ...` |
-| 11 | `frappe step site-create` | `bench new-site <site>` |
-| 12 | `frappe step app-get` | `bench get-app <url>` |
-| 13 | `frappe step dns-multitenant` | `bench config dns_multitenant on` |
-| 14 | `frappe step production` | `bench setup production` + supervisor self-heal + verify |
-| 15 | `frappe step app-install` | `bench --site <s> install-app <app>` |
-| 16 | `frappe step bench-restart` | `supervisorctl reread/update` + nginx reload |
-| 17 | `frappe step ssl` | `bench setup lets-encrypt <site>` |
+| 1 | `fc step system-update` | `apt-get update && upgrade` |
+| 2 | `fc step system-deps` | Frappe's required apt packages |
+| 3 | `fc step uv-check` | Ensure `uv` is installed |
+| 4 | `fc step nodejs` | Install Node.js + Yarn |
+| 5 | `fc step mariadb-install` | Install MariaDB + utf8mb4 config |
+| 6 | `fc step mariadb-secure` | Secure MariaDB root user |
+| 7 | `fc step redis` | Install Redis server |
+| 8 | `fc step wkhtmltopdf` | Install wkhtmltopdf + X11 fonts |
+| 9 | `fc step bench-install` | `uv tool install frappe-bench` |
+| 10 | `fc step bench-init` | `bench init <name> --frappe-branch ...` |
+| 11 | `fc step site-create` | `bench new-site <site>` |
+| 12 | `fc step app-get` | `bench get-app <url>` |
+| 13 | `fc step dns-multitenant` | `bench config dns_multitenant on` |
+| 14 | `fc step production` | `bench setup production` + supervisor self-heal + verify |
+| 15 | `fc step app-install` | `bench --site <s> install-app <app>` |
+| 16 | `fc step bench-restart` | `supervisorctl reread/update` + nginx reload |
+| 17 | `fc step ssl` | `bench setup lets-encrypt <site>` |
 
 ### Add another site to an existing bench
 
 ```bash
-frappe step site-create     --bench-name my-bench --site-name shop.example.com
-frappe step dns-multitenant --bench-name my-bench
-frappe step app-install     --bench-name my-bench --site-name shop.example.com --app-url erpnext
-frappe step bench-restart   --bench-name my-bench
-frappe step ssl             --bench-name my-bench --site-name shop.example.com
+fc step site-create     --bench-name my-bench --site-name shop.example.com
+fc step dns-multitenant --bench-name my-bench
+fc step app-install     --bench-name my-bench --site-name shop.example.com --app-url erpnext
+fc step bench-restart   --bench-name my-bench
+fc step ssl             --bench-name my-bench --site-name shop.example.com
 ```
 
 ### Set up an automated backup
 
 ```bash
-frappe backup setup \
+fc backup setup \
   --bench-name my-bench \
   --site-name erp.example.com \
   --admin-email you@example.com
@@ -230,14 +366,14 @@ frappe backup setup \
 ### Service health check
 
 ```bash
-frappe service status --bench-name my-bench --site-name erp.example.com
-frappe service restart
+fc service status --bench-name my-bench --site-name erp.example.com
+fc service restart
 ```
 
 ### Firewall (UFW)
 
 ```bash
-frappe firewall setup        # opens 22, 80, 443 by default
+fc firewall setup        # opens 22, 80, 443 by default
 ```
 
 ---
@@ -246,10 +382,10 @@ frappe firewall setup        # opens 22, 80, 443 by default
 
 `frappe-cli` is designed to work on hosts that already have bench installed or already have other Frappe benches:
 
-- `frappe step bench-install` — checks if `bench` is on `PATH` (any of `~/.local/bin`, `/usr/local/bin`, `/usr/bin`) and skips if found.
-- `frappe step bench-init` — skips if the target bench directory already has `apps/frappe/`.
-- `frappe step production` — explicitly creates the missing `supervisor.conf` symlink that vanilla `bench setup production` sometimes forgets on multi-bench hosts.
-- `frappe step ssl` — uses `sudo test -f` so it can correctly detect existing certs in the root-owned `/etc/letsencrypt/live/` directory.
+- `fc step bench-install` — checks if `bench` is on `PATH` (any of `~/.local/bin`, `/usr/local/bin`, `/usr/bin`) and skips if found.
+- `fc step bench-init` — skips if the target bench directory already has `apps/frappe/`.
+- `fc step production` — explicitly creates the missing `supervisor.conf` symlink that vanilla `bench setup production` sometimes forgets on multi-bench hosts.
+- `fc step ssl` — uses `sudo test -f` so it can correctly detect existing certs in the root-owned `/etc/letsencrypt/live/` directory.
 
 ---
 
@@ -257,13 +393,14 @@ frappe firewall setup        # opens 22, 80, 443 by default
 
 | Pain point | `bench` alone | `frappe-cli` |
 |---|---|---|
-| Fresh VPS bootstrap | 8+ manual steps, lots of doc-hopping | One command |
-| Multi-bench supervisor symlink | Sometimes silently missing → "Redis connection refused" on `install-app` | Auto-created and verified |
+| Fresh VPS bootstrap | 8+ manual steps, lots of doc-hopping | `fc install wizard` |
+| Daily `migrate` / `console` | `bench --site long.site.name migrate` | `fc migrate` |
+| Multi-bench supervisor symlink | Sometimes silently missing → errors | Auto-created and verified |
 | Redis health check before `install-app` | None | TCP `PING`/`PONG` on queue/cache/socketio ports |
 | `bench setup lets-encrypt` prompts | Two interactive `[y/N]` prompts | Automated |
 | State across reboots / partial failures | Manual | `--resume` from saved state |
-| Re-running a single step | Find the command, get the args right | `frappe step <name>` |
-| Listing sites without SSL | grep + sudo find | `frappe ssl list` |
+| Re-running a single step | Find the command, get the args right | `fc step <name>` |
+| Listing sites without SSL | grep + sudo find | `fc ssl list` |
 
 ---
 
@@ -313,34 +450,36 @@ cd frappe-cli
 # Install dependencies
 poetry install
 
-# Run all tests (133 passing)
+# Run all tests (163 passing)
 PYTHONPATH=src poetry run pytest tests/
 
 # Lint (ruff + black --check + isort --check + mypy)
 poetry run bash scripts/lint.sh
 
-# Try a local build
-pip install --editable .
-frappe --help
+# Install locally and try it
+poetry run fc --help
 ```
 
 ### Project layout
 
 ```
 src/frappe_cli/
-├── cli.py                  # root Click group
+├── cli.py                  # root Click group — registers all commands
+├── dev/
+│   ├── context.py          # bench detection + .fp.yaml read/write
+│   └── commands.py         # use, context, sites + passthrough commands
 ├── install/
-│   ├── wizard.py           # `frappe install wizard`
+│   ├── wizard.py           # fc install wizard
 │   ├── context.py          # InstallContext dataclass
 │   ├── state.py            # ~/.frappe-cli-state.json (resume support)
 │   └── steps/              # one InstallStep class per wizard step
-├── step/                   # `frappe step <name>` — thin wrappers around steps/
-├── ssl/                    # `frappe ssl setup`, `frappe ssl list`
+├── step/                   # fc step <name> — thin wrappers around steps/
+├── ssl/                    # fc ssl setup, fc ssl list
 ├── site/, app/, service/, backup/, firewall/, ...
 └── utils/                  # shell, errors, logging, validators
 ```
 
-Tests live under `tests/` (one file per command group, plus `test_install_steps.py` for the wizard's step classes).
+Tests live under `tests/` (one file per command group, plus `test_install_steps.py` for the wizard step classes and `test_dev_commands.py` for dev workflow).
 
 ---
 
@@ -361,7 +500,7 @@ Built by **Rashidi Okama** in Tanzania to make day-to-day Frappe work easier.
 - Website: <https://rashidiokama.com>
 - GitHub: <https://github.com/okama12>
 
-Run `frappe about` for the in-CLI credits panel. If this project saves you time, please [star the repo](https://github.com/okama12/frappe-cli) — it really helps.
+Run `fc about` for the in-CLI credits panel. If this project saves you time, please [star the repo](https://github.com/okama12/frappe-cli) — it really helps.
 
 ---
 

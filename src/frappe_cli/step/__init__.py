@@ -1,16 +1,16 @@
-"""`frappe step` — run any individual wizard step as a standalone command.
+"""`fc step` — run any individual wizard step as a standalone command.
 
 Each command thinly wraps an `InstallStep` subclass (the same code the
-`frappe install wizard` runs end-to-end) so behaviour — self-healing,
+`fc install wizard` runs end-to-end) so behaviour — self-healing,
 verification, dry-run, rollback hooks — stays consistent between the
 automated wizard and ad-hoc / partial reruns.
 
 Examples:
-    frappe step list                                       # show every step
-    frappe step dns-multitenant --bench-name test5-bench
-    frappe step production --bench-name test5-bench
-    frappe step ssl --bench-name test5-bench --site-name test5.example.com
-    frappe step site-create --bench-name my-bench --site-name my.example.com
+    fc step list                                       # show every step
+    fc step dns-multitenant --bench-name test5-bench
+    fc step production --bench-name test5-bench
+    fc step ssl --bench-name test5-bench --site-name test5.example.com
+    fc step site-create --bench-name my-bench --site-name my.example.com
 """
 
 import click

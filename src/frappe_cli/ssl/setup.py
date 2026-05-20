@@ -1,4 +1,4 @@
-"""`frappe ssl setup` — install a Let's Encrypt certificate for an existing site.
+"""`fc ssl setup` — install a Let's Encrypt certificate for an existing site.
 
 Uses `bench setup lets-encrypt <site>` (NOT raw `certbot --nginx`) so that
 bench rewrites this bench's nginx config with the SSL block and registers the
@@ -144,9 +144,9 @@ def setup(site_name: str, bench_name: str, email: str, force: bool) -> None:
     matching the proven manual runbook.
 
     Examples:
-        frappe ssl setup --site-name test5.rashidiokama.com
-        frappe ssl setup --site-name site.example.com --bench-name my-bench
-        frappe ssl setup --site-name site.example.com --email me@example.com
+        fc ssl setup --site-name test5.rashidiokama.com
+        fc ssl setup --site-name site.example.com --bench-name my-bench
+        fc ssl setup --site-name site.example.com --email me@example.com
     """
     logger.info(f"[ssl] Setting up SSL for {site_name}")
     bench_path = _find_bench_for_site(site_name, bench_name)

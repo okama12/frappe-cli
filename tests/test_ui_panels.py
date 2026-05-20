@@ -100,7 +100,7 @@ class TestPrintError:
         )
         assert "Configure SSL" in out
         assert "Command failed" in out
-        assert "frappe install wizard --resume" in out
+        assert "fc install wizard --resume" in out
 
 
 # ── frappe about ─────────────────────────────────────────────────────────────

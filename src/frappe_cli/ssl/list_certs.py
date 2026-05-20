@@ -105,7 +105,7 @@ def list_certs(use_sudo: bool) -> None:
             hint = ""
         elif has is False:
             cell = "[red]No[/red]"
-            hint = f"frappe ssl setup --site-name {site_name}"
+            hint = f"fc ssl setup --site-name {site_name}"
             missing.append(site_name)
         else:
             cell = "[yellow]?[/yellow]"
@@ -116,5 +116,5 @@ def list_certs(use_sudo: bool) -> None:
     if missing:
         console.print(
             f"\n[yellow]{len(missing)} site(s) without SSL.[/yellow] "
-            "Run `frappe ssl setup --site-name <site>` for each."
+            "Run `fc ssl setup --site-name <site>` for each."
         )

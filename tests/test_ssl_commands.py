@@ -220,5 +220,5 @@ class TestSslListCommand:
         assert "test6.example.com" in result.output
         # Rich may wrap the hint column; check both site name and the
         # suggested-command preamble appear somewhere in the output.
-        assert "frappe ssl setup --site-name" in result.output
+        assert "fc ssl setup --site-name" in result.output
         assert "1 site(s) without SSL" in result.output

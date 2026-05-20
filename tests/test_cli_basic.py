@@ -7,7 +7,7 @@ def test_frappe_help():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ["--help"])
     assert result.exit_code == 0
-    assert "Frappe Installer CLI" in result.output
+    assert "Frappe CLI" in result.output
     assert "Commands:" in result.output
 
 

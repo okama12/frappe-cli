@@ -66,14 +66,14 @@ def print_success(console: Console, ctx) -> None:
         )
     )
     console.print("\n[dim]Next steps:[/dim]")
-    console.print("  [cyan]frappe service status[/cyan]  — check running services")
-    console.print("  [cyan]frappe site backup[/cyan]     — take a manual backup")
+    console.print("  [cyan]fc service status[/cyan]  — check running services")
+    console.print("  [cyan]fc site backup[/cyan]     — take a manual backup")
     if ctx.skip_ssl:
         console.print(
-            "  [cyan]frappe install wizard[/cyan]  — re-run without --skip-ssl to add SSL"
+            "  [cyan]fc install wizard[/cyan]  — re-run without --skip-ssl to add SSL"
         )
     else:
-        console.print("  [cyan]frappe ssl setup[/cyan]       — renew SSL certificate")
+        console.print("  [cyan]fc ssl setup[/cyan]       — renew SSL certificate")
     console.print(
         "\n[dim]Made with care by Rashidi Okama in Tanzania · "
         "if this saved you time, star the repo:[/dim] "
@@ -88,7 +88,7 @@ def print_error(
     if hint.strip():
         parts.append(f"\n[dim]stderr:[/dim] {hint.strip()[:300]}")
     parts.append("\nFix the issue then re-run:")
-    parts.append("  [cyan]frappe install wizard --resume[/cyan]")
+    parts.append("  [cyan]fc install wizard --resume[/cyan]")
     console.print(
         _fit_panel(
             "\n".join(parts),
