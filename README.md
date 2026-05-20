@@ -3,7 +3,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/frappe-cli.svg)](https://pypi.org/project/frappe-cli/)
 [![Python](https://img.shields.io/pypi/pyversions/frappe-cli.svg)](https://pypi.org/project/frappe-cli/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-163%20passing-brightgreen.svg)](#development)
+[![Tests](https://img.shields.io/badge/tests-189%20passing-brightgreen.svg)](#development)
 
 ```
   ███████╗██████╗  █████╗ ██████╗ ██████╗ ███████╗     ██████╗██╗     ██╗
@@ -159,12 +159,33 @@ You'll be prompted for:
 | Bench directory | `my-bench` |
 | Site (FQDN, must resolve to this host) | `erp.example.com` |
 | Frappe branch | `version-15` |
-| App to install | `erpnext` |
-| App branch | `version-15` |
-| MariaDB root password | (new password) |
+| App GitHub URL | `https://github.com/myorg/vsd_fleet_ms` (or blank) |
+| App branch | auto-detected — see note below |
+| MariaDB root password | (entered **twice** for confirmation) |
 | Site Administrator password | (new password) |
 | Let's Encrypt email | `you@example.com` |
-| Sudo password | (your user password) |
+| Sudo password | (your login password) |
+| Allow passwordless `fp restart`? | `Y` recommended |
+
+#### App branch auto-detection
+
+The wizard detects the right branch automatically:
+
+| App type | Default branch | How it works |
+|---|---|---|
+| Official Frappe app (`erpnext`, `hrms`, `payments`, …) | Same as Frappe branch (`version-15`) | No network call — detected by name/URL |
+| Custom / third-party app | Detected from remote heads | `git ls-remote` checks for `version-15` → `main` → `develop` in priority order |
+| Custom / private repo (auth fails) | `main` | Falls back safely; shows a hint to set up SSH keys or Git credentials |
+
+For **private repos**, use the SSH URL format before running the wizard:
+```bash
+# Make sure your SSH key is added to GitHub first
+git@github.com:myorg/vsd_fleet_ms.git   ← use this style in the URL prompt
+```
+
+#### MariaDB root password
+
+The wizard asks for this password **twice**. Unlike the site admin password (which can be reset with `bench set-admin-password`), the MariaDB root password is harder to recover if entered incorrectly. Confirm carefully.
 
 If a step fails, fix the issue and resume from where it stopped:
 
@@ -234,12 +255,68 @@ fp use staging.example.com
 fp migrate            → bench --site staging.example.com migrate
 ```
 
+### One-command deploy
+
+The most common prod/demo workflow — pull, migrate, then restart:
+
+```bash
+cd ~/my-bench/apps/my_custom_app
+fp deploy
+# → git pull
+# → bench --site dev.local migrate
+# → bench restart
+# ✓ Deploy complete
+```
+
+Migrate runs **before** restart so schema and code changes apply cleanly.
+Skip `git pull` when you only need migrate + restart:
+
+```bash
+fp deploy --no-pull
+```
+
+### Make fp restart passwordless
+
+On production benches `bench restart` (and therefore `fp restart` / `fp deploy`) uses `sudo supervisorctl` — which prompts for a password.
+
+Enable passwordless restart in two ways:
+
+**Option A — during `fp install wizard`** (recommended for new servers):
+
+The wizard asks you at setup time:
+
+```
+Allow passwordless 'fp restart' for this user? [Y/n]
+```
+
+Answer `Y` and the wizard writes a safe sudoers drop-in automatically.
+
+**Option B — at any time with `fp sudo`:**
+
+```bash
+fp sudo status              # check current state
+fp sudo enable-restart      # grant passwordless supervisorctl (asks sudo once)
+fp sudo disable-restart     # revoke the rule
+```
+
+After enabling, `fp deploy` runs completely without password prompts:
+
+```
+→ git pull
+→ migrate dev.local
+→ restart bench
+✓ Deploy complete
+```
+
+The sudoers rule is scoped to **one user + one binary** (`/usr/bin/supervisorctl`) — minimal privilege. The file is tagged so `fp sudo disable-restart` never removes a hand-crafted rule.
+
 ### All dev commands
 
 ```
   fp use <site>         Write active site to .fp.yaml
   fp context            Show current bench + active site
   fp sites              List all sites (active site marked with ●)
+  fp deploy             git pull → migrate → restart
 
   ── site-scoped (auto-injects --site) ─────────────────────────────
   fp migrate            Sync schema, run patches, rebuild assets
@@ -256,6 +333,11 @@ fp migrate            → bench --site staging.example.com migrate
   fp start              Start dev server (Procfile)
   fp watch              Watch + recompile JS/CSS on change
   fp get-app <url>      Download app from git URL
+
+  ── sudoers management ────────────────────────────────────────────
+  fp sudo status                Show passwordless restart state
+  fp sudo enable-restart        Grant passwordless supervisorctl
+  fp sudo disable-restart       Revoke the rule
 ```
 
 > **How it works:** `fp` detects the bench root by walking up from your current directory looking for both a `sites/` and `apps/` folder. The active site is stored in `<bench_root>/.fp.yaml` — a plain YAML file you can inspect or edit directly. The wizard's state (`~/.frappe-cli-state.json`) is completely separate and untouched.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
@@ -170,7 +171,109 @@ def test_migrate_no_active_site(tmp_path):
         os.chdir(orig_dir)
 
 
-# ── passthrough: fp restart (bench-scoped, no site) ──────────────────────────
+# ── fp deploy ─────────────────────────────────────────────────────────────────
+
+
+def test_deploy_runs_pull_migrate_restart_in_order(tmp_path):
+    """fp deploy should run git pull, migrate, then restart — in that order."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    app_dir = bench / "apps" / "my_app"
+    app_dir.mkdir(parents=True)
+    (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    calls: list[tuple[list[str], str]] = []
+    try:
+        os.chdir(app_dir)
+        with patch("subprocess.run") as mock_run:
+
+            def _capture(cmd, **kwargs):
+                calls.append((list(cmd), kwargs.get("cwd", "")))
+                if cmd[:3] == ["git", "rev-parse", "--is-inside-work-tree"]:
+                    return subprocess.CompletedProcess([], 0, stdout="true\n")
+                return subprocess.CompletedProcess([], 0)
+
+            mock_run.side_effect = _capture
+
+            result = runner.invoke(cli, ["deploy"])
+        assert result.exit_code == 0, result.output
+        assert "Deploy complete" in result.output
+        assert calls[0][0] == ["git", "rev-parse", "--is-inside-work-tree"]
+        assert calls[1][0] == ["git", "pull"]
+        assert calls[2][0] == ["bench", "--site", "dev.local", "migrate"]
+        assert calls[3][0] == ["bench", "restart"]
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_deploy_stops_on_migrate_failure(tmp_path):
+    """fp deploy should not restart if migrate fails."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    app_dir = bench / "apps" / "my_app"
+    app_dir.mkdir(parents=True)
+    (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    restart_called = False
+    try:
+        os.chdir(app_dir)
+
+        def _side_effect(cmd, **kwargs):
+            nonlocal restart_called
+            if cmd[:3] == ["git", "rev-parse", "--is-inside-work-tree"]:
+                return subprocess.CompletedProcess([], 0, stdout="true\n")
+            if cmd[:2] == ["git", "pull"]:
+                return subprocess.CompletedProcess([], 0)
+            if cmd[:2] == ["bench", "--site"]:
+                return subprocess.CompletedProcess([], 1)
+            if cmd == ["bench", "restart"]:
+                restart_called = True
+                return subprocess.CompletedProcess([], 0)
+            return subprocess.CompletedProcess([], 0)
+
+        with patch("subprocess.run", side_effect=_side_effect):
+            result = runner.invoke(cli, ["deploy"])
+        assert result.exit_code == 1
+        assert restart_called is False
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_deploy_no_pull_skips_git(tmp_path):
+    """fp deploy --no-pull should skip git pull."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            result = runner.invoke(cli, ["deploy", "--no-pull"])
+        assert result.exit_code == 0, result.output
+        cmds = [call[0][0] for call in mock_run.call_args_list]
+        assert cmds[0] == ["bench", "--site", "dev.local", "migrate"]
+        assert cmds[1] == ["bench", "restart"]
+        assert not any(cmd[0] == "git" for cmd in cmds)
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_deploy_requires_git_repo_without_no_pull(tmp_path):
+    """fp deploy should abort when cwd is not a git repo."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value = subprocess.CompletedProcess([], 1)
+            result = runner.invoke(cli, ["deploy"])
+        assert result.exit_code != 0
+        assert "git repository" in result.output.lower()
+    finally:
+        os.chdir(orig_dir)
 
 
 def test_restart_does_not_inject_site(tmp_path):

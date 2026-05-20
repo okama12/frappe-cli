@@ -250,20 +250,34 @@ def cmd_site_create(
 )
 @click.option(
     "--app-branch",
-    default="version-15",
-    show_default=True,
-    help="App branch to clone",
+    default=None,
+    help=(
+        "App branch to clone. "
+        "Defaults to version-15 for official Frappe apps (erpnext, hrms…) "
+        "or 'main' for custom apps. "
+        "Branch detection is attempted automatically if omitted."
+    ),
 )
 @common_options
 def cmd_app_get(
     bench_name: str,
     app_url: str,
-    app_branch: str,
+    app_branch: str | None,
     dry_run: bool,
     debug: bool,
     force: bool,
 ) -> None:
     """`bench get-app <url> --branch <branch>` (clones into apps/)."""
+    from frappe_cli.utils.git_repo import resolve_app_branch
+
+    if app_branch is None:
+        resolved, hint = resolve_app_branch(app_url, frappe_branch="version-15")
+        if hint:
+            import click as _click
+
+            _click.echo(f"Warning: {hint}", err=True)
+        app_branch = resolved
+
     ctx = build_context(
         bench_name=bench_name,
         app_url=app_url,

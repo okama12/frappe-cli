@@ -3,6 +3,7 @@ from rich.prompt import Confirm, Prompt
 
 from ..install.context import InstallContext
 from ..install.state import InstallState
+from ..utils.git_repo import is_official_frappe_app, resolve_app_branch
 from .panels import print_header
 
 
@@ -15,6 +16,49 @@ def _detect_ubuntu_version() -> str:
     except FileNotFoundError:
         pass
     return "22.04"
+
+
+def _resolve_branch_for_prompt(
+    console: Console, app_url: str, frappe_branch: str
+) -> str:
+    """Ask for the app branch, using smart defaults depending on app type."""
+    if not app_url:
+        return frappe_branch
+
+    if is_official_frappe_app(app_url):
+        # Official apps (erpnext, hrms, …) are versioned the same as Frappe.
+        return Prompt.ask(
+            "  App branch",
+            default=frappe_branch,
+        )
+
+    # Custom / third-party app: try remote branch detection.
+    console.print("  [dim]Detecting remote branches…[/dim]", end="")
+    branch, hint = resolve_app_branch(app_url, frappe_branch)
+    console.print("\r" + " " * 35 + "\r", end="")  # clear the line
+
+    if hint:
+        console.print(f"\n  [yellow]{hint}[/yellow]\n")
+    else:
+        console.print(
+            f"  [dim]Remote branches found. "
+            f"Suggested branch: [bold]{branch}[/bold][/dim]"
+        )
+
+    return Prompt.ask("  App branch", default=branch)
+
+
+def _prompt_mariadb_password(console: Console) -> str:
+    """Ask for MariaDB root password twice and loop until entries match."""
+    while True:
+        password = Prompt.ask(
+            "  MariaDB root password (stored for this server — verify carefully)",
+            password=True,
+        )
+        confirm = Prompt.ask("  Confirm MariaDB root password", password=True)
+        if password == confirm:
+            return password
+        console.print("  [red]Passwords do not match. Please try again.[/red]\n")
 
 
 def collect_inputs(
@@ -30,17 +74,20 @@ def collect_inputs(
 
     console.print("\n  [bold]── App ──[/bold]")
     app_url = Prompt.ask("  App GitHub URL (leave blank for Frappe only)", default="")
-    app_branch = (
-        Prompt.ask("  App branch", default=frappe_branch) if app_url else frappe_branch
-    )
+    app_branch = _resolve_branch_for_prompt(console, app_url, frappe_branch)
 
     console.print("\n  [bold]── Credentials ──[/bold]")
-    sudo_password = Prompt.ask("  Sudo (VPS admin) password", password=True)
-    mariadb_root_password = Prompt.ask(
-        "  MariaDB root password (will be set)", password=True
-    )
+    sudo_password = Prompt.ask("  Sudo password", password=True)
+    mariadb_root_password = _prompt_mariadb_password(console)
     admin_password = Prompt.ask("  Frappe site admin password", password=True)
     ssl_email = Prompt.ask("  SSL email (Let's Encrypt)") if not skip_ssl else ""
+
+    console.print("\n  [bold]── Daily Developer Workflow ──[/bold]")
+    enable_passwordless_restart = Confirm.ask(
+        "  Allow passwordless 'fp restart' for this user?\n"
+        "  [dim](adds a sudoers rule so bench restart never prompts for a password)[/dim]",
+        default=True,
+    )
 
     ubuntu_version = _detect_ubuntu_version()
     console.print(f"\n  [dim]Detected Ubuntu {ubuntu_version}[/dim]\n")
@@ -62,6 +109,7 @@ def collect_inputs(
         dry_run=dry_run,
         debug=debug,
         skip_ssl=skip_ssl,
+        enable_passwordless_restart=enable_passwordless_restart,
     )
 
 
@@ -82,13 +130,11 @@ def collect_credentials_for_resume(
     console.print("  [bold]── Re-enter credentials ──[/bold]")
 
     # sudo is always needed — remaining steps (production, SSL, restart) all use it
-    sudo_password = Prompt.ask("  Sudo (VPS admin) password", password=True)
+    sudo_password = Prompt.ask("  Sudo password", password=True)
 
     # Only needed if MariaDB hasn't been secured yet
     mariadb_root_password = (
-        ""
-        if "mariadb_secure" in done
-        else Prompt.ask("  MariaDB root password", password=True)
+        "" if "mariadb_secure" in done else _prompt_mariadb_password(console)
     )
 
     # Only needed if the site hasn't been created yet

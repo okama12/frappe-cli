@@ -47,7 +47,7 @@ class TestPrintHeader:
     def test_includes_product_name_and_tagline(self):
         out = _render(print_header)
         assert "Frappe CLI" in out
-        assert "Production Server Installer" in out
+        assert "Install · Operate · Develop" in out
 
     def test_credits_author_name_and_country(self):
         out = _render(print_header)

@@ -6,6 +6,7 @@ from frappe_cli.app import app
 from frappe_cli.backup import backup
 from frappe_cli.config import config
 from frappe_cli.dev.commands import ALL_DEV_COMMANDS
+from frappe_cli.dev.sudo_commands import sudo_group
 from frappe_cli.firewall import firewall
 from frappe_cli.install import install
 from frappe_cli.maintenance import maintenance
@@ -172,6 +173,8 @@ cli.add_command(optimize)
 # Dev workflow commands (bench context + passthrough)
 for _dev_cmd in ALL_DEV_COMMANDS:
     cli.add_command(_dev_cmd)
+
+cli.add_command(sudo_group)
 
 if __name__ == "__main__":
     cli(obj={})

@@ -8,6 +8,7 @@ from .production import BenchRestartStep, ProductionSetupStep
 from .redis import RedisStep
 from .site import SiteCreateStep
 from .ssl import SSLSetupStep
+from .sudoers import SudoersSetupStep
 from .system import SystemDepsStep, SystemUpdateStep
 from .uv_check import UvCheckStep
 from .wkhtmltopdf import WkhtmltopdfStep
@@ -33,6 +34,9 @@ ALL_STEPS = [
     # ProductionSetupStep self-heals the supervisor symlink and hard-verifies
     # both supervisor RUNNING and Redis PONG before returning.
     ProductionSetupStep(),
+    # Optional: grant passwordless 'bench restart' for this user.
+    # Runs right after production so the rest of the wizard benefits too.
+    SudoersSetupStep(),
     AppInstallStep(),
     BenchRestartStep(),
     SSLSetupStep(),

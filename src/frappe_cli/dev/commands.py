@@ -10,6 +10,8 @@ Passthrough commands (thin wrappers around ``bench``):
   migrate, console, restart, build, start, get-app, watch,
   install-app, uninstall-app, list-apps, clear-cache, mariadb
 
+deploy       git pull → migrate → restart (daily deploy workflow)
+
 Each passthrough resolves the bench root from the current working directory
 and injects ``--site <active_site>`` automatically for site-scoped commands.
 """
@@ -76,6 +78,25 @@ def _require_site(bench_root: Path) -> str:
             "  Run: fp use <site-name>"
         )
     return site
+
+
+def _is_git_repo(path: Path) -> bool:
+    """Return True when *path* is inside a git work tree."""
+    result = subprocess.run(
+        ["git", "rev-parse", "--is-inside-work-tree"],
+        cwd=str(path),
+        capture_output=True,
+        text=True,
+    )
+    return result.returncode == 0 and result.stdout.strip() == "true"
+
+
+def _run_checked(cmd: list[str], *, cwd: Path, label: str) -> None:
+    """Run *cmd* in *cwd*; exit with its code on failure."""
+    _console.print(f"[bold cyan]→[/bold cyan] {label}")
+    result = subprocess.run(cmd, cwd=str(cwd))
+    if result.returncode != 0:
+        raise SystemExit(result.returncode)
 
 
 # ── fp use ────────────────────────────────────────────────────────────────────
@@ -164,6 +185,50 @@ def sites() -> None:
         _console.print(f"\n[dim]Active site:[/dim] [bold]{active}[/bold]")
     else:
         _console.print("\n[dim]No active site. Run:[/dim] fp use <site>")
+
+
+# ── fp deploy ─────────────────────────────────────────────────────────────────
+
+
+@click.command("deploy")
+@click.option(
+    "--no-pull",
+    is_flag=True,
+    help="Skip git pull (migrate + restart only).",
+)
+def deploy(no_pull: bool) -> None:
+    """Pull latest code, migrate the active site, then restart bench.
+
+    Runs in order: git pull → bench migrate → bench restart.
+    Migrate runs before restart so schema/code changes apply cleanly.
+
+    Run from an app directory (e.g. apps/my_app) to pull that repo.
+    Migrate and restart always run from the detected bench root.
+
+    \b
+    Examples:
+        cd ~/my-bench/apps/my_app && fp deploy
+        fp deploy --no-pull
+    """
+    bench_root = _require_bench()
+    site = _require_site(bench_root)
+    cwd = Path(os.getcwd())
+
+    if not no_pull:
+        if not _is_git_repo(cwd):
+            raise click.ClickException(
+                "Not inside a git repository.\n"
+                "  cd into the app you want to pull, or use --no-pull."
+            )
+        _run_checked(["git", "pull"], cwd=cwd, label="git pull")
+
+    _run_checked(
+        ["bench", "--site", site, "migrate"],
+        cwd=bench_root,
+        label=f"migrate {site}",
+    )
+    _run_checked(["bench", "restart"], cwd=bench_root, label="restart bench")
+    _console.print("[green]✓[/green] Deploy complete")
 
 
 # ── passthrough factory ───────────────────────────────────────────────────────
@@ -266,6 +331,7 @@ ALL_DEV_COMMANDS: list[click.Command] = [
     use,
     context,
     sites,
+    deploy,
     migrate,
     console,
     restart,

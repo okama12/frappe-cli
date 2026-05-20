@@ -18,6 +18,7 @@ class InstallContext:
     dry_run: bool
     debug: bool = False
     skip_ssl: bool = False
+    enable_passwordless_restart: bool = False
     log_fn: Optional[Callable[[str], None]] = field(default=None, repr=False)
 
     @property

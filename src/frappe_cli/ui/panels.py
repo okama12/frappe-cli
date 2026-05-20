@@ -21,22 +21,40 @@ def _fit_panel(
     )
 
 
+_ASCII_ART = """\
+[bold green]  ███████╗██████╗  █████╗ ██████╗ ██████╗ ███████╗     ██████╗██╗     ██╗[/bold green]
+[bold green]  ██╔════╝██╔══██╗██╔══██╗██╔══██╗██╔══██╗██╔════╝    ██╔════╝██║     ██║[/bold green]
+[bold green]  █████╗  ██████╔╝███████║██████╔╝██████╔╝█████╗      ██║     ██║     ██║[/bold green]
+[bold green]  ██╔══╝  ██╔══██╗██╔══██║██╔═══╝ ██╔═══╝ ██╔══╝      ██║     ██║     ██║[/bold green]
+[bold green]  ██║     ██║  ██║██║  ██║██║     ██║     ███████╗    ╚██████╗███████╗██║[/bold green]
+[bold green]  ╚═╝     ╚═╝  ╚═╝╚═╝  ╚═╝╚═╝     ╚═╝     ╚══════╝     ╚═════╝╚══════╝╚═╝[/bold green]\
+"""
+
+
 def print_header(console: Console) -> None:
     try:
         version = importlib.metadata.version("frappe-cli")
     except importlib.metadata.PackageNotFoundError:
         version = "dev"
-    content = Text()
-    content.append("Frappe CLI ", style="bold green")
-    content.append(f"v{version}\n", style="bold")
-    content.append("Production Server Installer\n", style="dim")
-    content.append("Built by ", style="dim")
-    content.append("Rashidi Okama", style="bold cyan")
-    content.append(" · Tanzania\n", style="dim")
-    content.append("github.com/okama12", style="cyan")
-    content.append(" · ", style="dim")
-    content.append("rashidiokama.com", style="cyan")
-    console.print(_fit_panel(content, border_style="green"))
+
+    console.print()
+    console.print(_ASCII_ART)
+    console.print(
+        f"[bold]                     Frappe CLI  ·  fp  ·  v{version}[/bold]"
+    )
+    console.print(
+        "[dim]           Install · Operate · Develop — all in one command[/dim]"
+    )
+    console.print()
+    meta = Text()
+    meta.append("Built by ", style="dim")
+    meta.append("Rashidi Okama", style="bold cyan")
+    meta.append(" · Tanzania   ", style="dim")
+    meta.append("github.com/okama12", style="cyan")
+    meta.append(" · ", style="dim")
+    meta.append("rashidiokama.com", style="cyan")
+    console.print(meta)
+    console.print()
 
 
 def print_success(console: Console, ctx) -> None:
