@@ -39,9 +39,7 @@ def print_header(console: Console) -> None:
 
     console.print()
     console.print(_ASCII_ART)
-    console.print(
-        f"[bold]                     Frappe CLI  ·  fp  ·  v{version}[/bold]"
-    )
+    console.print(f"[bold]                     Frappe CLI  ·  fp  ·  v{version}[/bold]")
     console.print(
         "[dim]           Install · Operate · Develop — all in one command[/dim]"
     )

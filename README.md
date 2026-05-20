@@ -60,7 +60,7 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 
 `frappe-cli` is published on PyPI: <https://pypi.org/project/frappe-cli/>.
 
-> **Note:** Do not use `fc` as the command — bash reserves it for shell history. Use **`fp`** instead (short for Frappe Platform, matches `.fp.yaml`).
+> After install, use **`fp`** as your command everywhere (short for Frappe Platform; the per-bench context file is `.fp.yaml`).
 
 ### With [uv](https://docs.astral.sh/uv/) (recommended)
 
