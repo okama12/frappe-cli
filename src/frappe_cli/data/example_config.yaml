@@ -1,5 +1,15 @@
-# Example Frappe Installer Config
-# Copy and edit as needed for your environment
+# Example Frappe CLI config
+# Copy and edit as needed for your environment.
+#
+# IMPORTANT — DO NOT STORE PASSWORDS HERE.
+#   This file is checked into VCS templates and may end up on shared boxes.
+#   Pass secrets at run time via env vars or the interactive wizard prompts:
+#
+#     FP_SUDO_PASSWORD=...        fp install wizard
+#     FP_MARIADB_PASSWORD=...     fp step mariadb-secure
+#     FP_ADMIN_PASSWORD=...       fp step site-create
+#
+#   The CLI never reads passwords from this YAML.
 
 system:
   timezone: "Africa/Dar_es_Salaam"
@@ -10,16 +20,15 @@ frappe:
   branch: "version-15"
   bench_name: "frappe-bench"
   site_name: "example.com"
-  admin_password: "changeme"
-  mariadb_root_password: "rootpass"
+  # admin_password / mariadb_root_password intentionally omitted — see header.
 
 services:
   enable_ssl: true
   enable_ufw: true
   enable_fail2ban: false
-  custom_ports: [ ]
+  custom_ports: []
 
 backup:
   admin_email: "admin@example.com"
   external_hd_uuid: ""
-  retention_days: 7 
+  retention_days: 7

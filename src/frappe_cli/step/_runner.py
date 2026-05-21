@@ -21,8 +21,25 @@ from rich.console import Console
 
 from frappe_cli.install.context import InstallContext
 from frappe_cli.install.steps.base import InstallStep, StepError
+from frappe_cli.utils.errors import ValidationError
+from frappe_cli.utils.validators import (
+    validate_bench_name,
+    validate_branch_name,
+    validate_email,
+    validate_git_url,
+    validate_site_name,
+)
 
 console = Console()
+
+
+def _validate_or_raise(value: str, validator, *, label: str) -> str:
+    if not value:
+        return value
+    try:
+        return validator(value)
+    except ValidationError as exc:
+        raise click.BadParameter(f"{label}: {exc}") from exc
 
 
 def _detect_ubuntu_version() -> str:
@@ -67,6 +84,20 @@ def build_context(
 
     def _log(line: str) -> None:
         console.print(f"[dim]{line}[/dim]")
+
+    # Strict validation for anything that flows into shell commands or paths.
+    bench_name = _validate_or_raise(
+        bench_name, validate_bench_name, label="--bench-name"
+    )
+    site_name = _validate_or_raise(site_name, validate_site_name, label="--site-name")
+    frappe_branch = _validate_or_raise(
+        frappe_branch, validate_branch_name, label="--frappe-branch"
+    )
+    app_url = _validate_or_raise(app_url, validate_git_url, label="--app-url")
+    app_branch = _validate_or_raise(
+        app_branch, validate_branch_name, label="--app-branch"
+    )
+    ssl_email = _validate_or_raise(ssl_email, validate_email, label="--ssl-email")
 
     if needs_sudo and sudo_password is None and not dry_run:
         sudo_password = getpass.getpass("Sudo password: ")

@@ -310,6 +310,47 @@ class TestMariaDBSecureStep:
             mock_run.return_value = MagicMock(returncode=1)
             assert MariaDBSecureStep().check(make_ctx()) is False
 
+    def test_escape_handles_sql_injection_attempts(self):
+        """The new MariaDB secure path escapes the password before it ever
+        touches a SQL literal — regression test for the audit's CRITICAL
+        finding on string-interpolated ALTER USER."""
+        from frappe_cli.install.steps.mariadb import _escape_mariadb_string
+
+        # A nasty payload trying to escape the quote and break out.
+        payload = "p'); DROP TABLE mysql.user; --"
+        escaped = _escape_mariadb_string(payload)
+        assert "\\'" in escaped
+        # The unescaped raw single quote must not appear.
+        assert "p'" not in escaped.replace("\\'", "")
+        # Newlines, backslashes, tabs, NULs all get encoded.
+        weird = "a\\b'c\nd\re\tf\x00g\x1ah"
+        e = _escape_mariadb_string(weird)
+        assert "\\\\" in e and "\\'" in e and "\\n" in e
+        assert "\\r" in e and "\\t" in e and "\\0" in e and "\\Z" in e
+
+    def test_run_writes_sql_via_stdin_not_argv(self, tmp_path):
+        """``mysql`` must be invoked with the SQL piped in on stdin, never
+        on argv. Otherwise the password is exposed via /proc/<pid>/cmdline.
+        """
+        from frappe_cli.install.steps.mariadb import MariaDBSecureStep
+
+        step = MariaDBSecureStep()
+        ctx = make_ctx(mariadb_root_password="s3cret'tricky")
+        with patch.object(step, "_sudo_pipe_stdin") as mock_pipe:
+            mock_pipe.return_value = MagicMock(returncode=0)
+            step.run(ctx)
+        args, _ = mock_pipe.call_args[0], mock_pipe.call_args.kwargs
+        cmd = args[1]
+        stdin_bytes = args[2]
+        assert cmd == ["mysql"], "password must not be on argv"
+        # Stdin contains the ALTER USER statement with the escaped password.
+        body = stdin_bytes.decode("utf-8")
+        assert "ALTER USER 'root'@'localhost'" in body
+        assert "FLUSH PRIVILEGES" in body
+        # The raw unescaped password must not appear verbatim.
+        assert "s3cret'tricky" not in body
+        assert "s3cret\\'tricky" in body
+
 
 # ── RedisStep ─────────────────────────────────────────────────────────────────
 
@@ -511,6 +552,7 @@ class TestSiteCreateStep:
             assert SiteCreateStep().check(ctx) is False
 
     def test_run_streams_via_popen_when_log_fn_set(self):
+        """Credentials must travel via env, never on argv."""
         from frappe_cli.install.steps.site import SiteCreateStep
 
         step = SiteCreateStep()
@@ -518,18 +560,26 @@ class TestSiteCreateStep:
         logs: list[str] = []
         ctx.log_fn = logs.append
 
-        with patch.object(step, "_popen") as mock_popen:
-            mock_popen.return_value = MagicMock(returncode=0)
+        with patch.object(step, "_popen_with_env") as mock_popen:
+            mock_popen.return_value = None
             step.run(ctx)
 
         mock_popen.assert_called_once()
+        kwargs = mock_popen.call_args.kwargs
         cmd = mock_popen.call_args[0][1]
+        env = kwargs["env"]
         assert cmd[1] == "new-site"
-        assert "--mariadb-root-password" in cmd
-        assert "dbpass" in cmd  # real password passed to subprocess, not log
+        # Passwords no longer on argv.
+        assert "--mariadb-root-password" not in cmd
+        assert "--admin-password" not in cmd
+        assert "dbpass" not in " ".join(cmd)
+        # They live in the child env instead.
+        assert env["MYSQL_PWD"] == "dbpass"
+        assert env["FRAPPE_ADMIN_PASSWORD"] == "adminpass"
+        # The streamed log line should not contain the secrets either.
         assert any("new-site" in line for line in logs)
-        assert any("***" in line for line in logs)
         assert not any("dbpass" in line for line in logs)
+        assert not any("adminpass" in line for line in logs)
 
     def test_run_uses_subprocess_when_no_log_fn(self):
         from frappe_cli.install.steps.site import SiteCreateStep
@@ -540,9 +590,12 @@ class TestSiteCreateStep:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             SiteCreateStep().run(ctx)
         cmd = mock_run.call_args[0][0]
+        env = mock_run.call_args.kwargs["env"]
         assert "new-site" in cmd
-        assert "--mariadb-root-password" in cmd
-        assert "--admin-password" in cmd
+        assert "--mariadb-root-password" not in cmd
+        assert "--admin-password" not in cmd
+        assert env["MYSQL_PWD"] == "dbpass"
+        assert env["FRAPPE_ADMIN_PASSWORD"] == "adminpass"
 
 
 # ── AppGetStep ────────────────────────────────────────────────────────────────

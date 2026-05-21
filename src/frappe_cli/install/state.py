@@ -1,4 +1,5 @@
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 
@@ -19,7 +20,30 @@ class InstallState:
 
 
 def save_state(state: InstallState) -> None:
-    STATE_FILE.write_text(json.dumps(asdict(state), indent=2))
+    """Persist install progress to ``~/.frappe-cli-state.json`` (mode 0600).
+
+    No passwords are stored — only completed-step names, bench/site identifiers,
+    and the user's choice for passwordless-restart. We still enforce 0600 because
+    on a multi-user box other users have no business reading another user's
+    install plan.
+    """
+    payload = json.dumps(asdict(state), indent=2)
+    # Write atomically: write to a temp neighbour, fsync, then rename + chmod.
+    tmp = STATE_FILE.with_suffix(STATE_FILE.suffix + ".tmp")
+    fd = os.open(str(tmp), os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(payload)
+            fh.flush()
+            os.fsync(fh.fileno())
+        os.replace(tmp, STATE_FILE)
+        os.chmod(STATE_FILE, 0o600)
+    finally:
+        if tmp.exists():
+            try:
+                tmp.unlink()
+            except OSError:
+                pass
 
 
 def load_state() -> InstallState:

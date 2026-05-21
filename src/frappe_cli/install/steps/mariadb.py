@@ -159,15 +159,65 @@ class MariaDBSecureStep(InstallStep):
             os.unlink(tmp_name)
 
     def run(self, ctx) -> None:
-        pw = ctx.mariadb_root_password.replace("'", "\\'")
-        sql = (
-            f"ALTER USER 'root'@'localhost' IDENTIFIED VIA mysql_native_password "
-            f"USING PASSWORD('{pw}'); "
-            "DELETE FROM mysql.user WHERE User=''; "
-            "DELETE FROM mysql.user WHERE User='root' AND Host NOT IN "
-            "('localhost', '127.0.0.1', '::1'); "
-            "DROP DATABASE IF EXISTS test; "
-            "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%'; "
-            "FLUSH PRIVILEGES;"
-        )
-        self._sudo(ctx, ["mysql", "-e", sql])
+        """Run the equivalent of ``mysql_secure_installation`` non-interactively.
+
+        Security notes:
+
+        * The new root password is NOT interpolated into a shell ``-e`` argument
+          (that path was vulnerable to SQL injection on passwords containing
+          ``'``, ``\\``, or backslash-newline sequences, and exposed the
+          password on argv to ``/proc``).
+        * Instead we write the statements to a temp file with mode ``0600`` and
+          run ``mysql --defaults-extra-file=<auth>`` plus ``< secure.sql`` on
+          stdin. The password is escaped with the full set of MariaDB string
+          literal escapes.
+        * The temp file is removed in ``finally``.
+        """
+        sql_file = _write_secure_sql(ctx.mariadb_root_password)
+        try:
+            input_bytes = Path(sql_file).read_bytes()
+            self._sudo_pipe_stdin(ctx, ["mysql"], input_bytes)
+        finally:
+            try:
+                os.unlink(sql_file)
+            except OSError:
+                pass
+
+
+def _escape_mariadb_string(value: str) -> str:
+    """Escape *value* for inclusion in a MariaDB single-quoted string literal.
+
+    Covers the characters MariaDB treats specially inside ``'…'`` literals:
+    NUL, backslash, single quote, newline, carriage return, tab, Ctrl-Z.
+    """
+    return (
+        value.replace("\\", "\\\\")
+        .replace("'", "\\'")
+        .replace("\0", "\\0")
+        .replace("\n", "\\n")
+        .replace("\r", "\\r")
+        .replace("\t", "\\t")
+        .replace("\x1a", "\\Z")
+    )
+
+
+def _write_secure_sql(root_password: str) -> str:
+    """Write the secure-MariaDB statements to a 0600 temp file. Returns the path."""
+    pw = _escape_mariadb_string(root_password)
+    sql = (
+        "ALTER USER 'root'@'localhost' "
+        f"IDENTIFIED VIA mysql_native_password USING PASSWORD('{pw}');\n"
+        "DELETE FROM mysql.user WHERE User='';\n"
+        "DELETE FROM mysql.user WHERE User='root' "
+        "AND Host NOT IN ('localhost', '127.0.0.1', '::1');\n"
+        "DROP DATABASE IF EXISTS test;\n"
+        "DELETE FROM mysql.db WHERE Db='test' OR Db='test\\_%';\n"
+        "FLUSH PRIVILEGES;\n"
+    )
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".sql", delete=False, encoding="utf-8"
+    ) as tmp:
+        tmp.write(sql)
+        path = tmp.name
+    os.chmod(path, 0o600)
+    return path

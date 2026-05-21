@@ -111,6 +111,43 @@ class InstallStep(ABC):
                 hint=e.stderr.decode(errors="replace"),
             )
 
+    def _sudo_pipe_stdin(
+        self,
+        ctx: InstallContext,
+        cmd: list[str],
+        stdin_after_password: bytes,
+        cwd: str | None = None,
+    ) -> subprocess.CompletedProcess:
+        """Like :meth:`_sudo` but pipes additional bytes to the command's stdin.
+
+        Unlike :meth:`_sudo_with_stdin` (which streams output through Popen),
+        this captures output. It is used by ``MariaDBSecureStep`` so the SQL
+        body is fed via stdin instead of via ``-e`` on argv — keeping
+        passwords out of ``/proc/<pid>/cmdline`` and avoiding shell/SQL
+        interpolation issues entirely.
+        """
+        if ctx.dry_run:
+            if ctx.log_fn:
+                ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}  < (stdin)")
+            return subprocess.CompletedProcess(cmd, 0, b"", b"")
+        full_cmd = ["sudo", "-S"] + cmd
+        input_bytes = (ctx.sudo_password + "\n").encode() + stdin_after_password
+        if ctx.log_fn:
+            ctx.log_fn(f"$ {' '.join(cmd)}")
+        try:
+            return subprocess.run(
+                full_cmd,
+                input=input_bytes,
+                capture_output=True,
+                check=True,
+                cwd=cwd,
+            )
+        except subprocess.CalledProcessError as e:
+            raise StepError(
+                f"Command failed: {' '.join(cmd)}",
+                hint=e.stderr.decode(errors="replace"),
+            )
+
     def _sudo_with_stdin(
         self,
         ctx: InstallContext,

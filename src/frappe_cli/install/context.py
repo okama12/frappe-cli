@@ -2,6 +2,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Optional
 
+from ..utils.validators import safe_bench_path
+
 
 @dataclass
 class InstallContext:
@@ -29,4 +31,11 @@ class InstallContext:
 
     @property
     def bench_path(self) -> Path:
-        return Path.home() / self.bench_name
+        """Return a validated bench path that is guaranteed to live under ``$HOME``.
+
+        Raises :class:`ValidationError` if ``bench_name`` is unsafe (absolute
+        path, traversal, or contains characters that could break shell/path
+        operations). Every step that touches the filesystem uses this property,
+        so validation cannot be bypassed.
+        """
+        return safe_bench_path(self.bench_name)

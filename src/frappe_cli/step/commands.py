@@ -113,7 +113,12 @@ def cmd_nodejs(dry_run: bool, debug: bool, force: bool) -> None:
     "--mariadb-password",
     prompt=False,
     default="",
-    help="Used by mariadb-secure only; safe to leave empty here",
+    envvar="FP_MARIADB_PASSWORD",
+    show_envvar=True,
+    help=(
+        "Used by mariadb-secure only; safe to leave empty here. "
+        "Prefer the FP_MARIADB_PASSWORD env var over passing on argv."
+    ),
 )
 @common_options
 def cmd_mariadb_install(
@@ -135,7 +140,13 @@ def cmd_mariadb_install(
     required=True,
     prompt="MariaDB root password",
     hide_input=True,
-    help="New MariaDB root password to set",
+    envvar="FP_MARIADB_PASSWORD",
+    show_envvar=True,
+    help=(
+        "New MariaDB root password to set. "
+        "Prefer the FP_MARIADB_PASSWORD env var over passing on argv "
+        "(argv is world-readable via /proc/<pid>/cmdline)."
+    ),
 )
 @common_options
 def cmd_mariadb_secure(
@@ -209,14 +220,24 @@ def cmd_bench_init(
     required=True,
     prompt="MariaDB root password",
     hide_input=True,
-    help="Required to create the site's database",
+    envvar="FP_MARIADB_PASSWORD",
+    show_envvar=True,
+    help=(
+        "Required to create the site's database. "
+        "Prefer FP_MARIADB_PASSWORD env var over argv."
+    ),
 )
 @click.option(
     "--admin-password",
     required=True,
     prompt="Administrator password",
     hide_input=True,
-    help="Initial password for the site's Administrator user",
+    envvar="FP_ADMIN_PASSWORD",
+    show_envvar=True,
+    help=(
+        "Initial password for the site's Administrator user. "
+        "Prefer FP_ADMIN_PASSWORD env var over argv."
+    ),
 )
 @common_options
 def cmd_site_create(

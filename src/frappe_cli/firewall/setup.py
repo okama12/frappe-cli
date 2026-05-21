@@ -2,7 +2,9 @@ import click
 from rich.console import Console
 
 from ..utils import shell
+from ..utils.errors import ValidationError
 from ..utils.logging import get_logger
+from ..utils.validators import validate_port_spec
 
 console = Console()
 logger = get_logger("firewall.setup")
@@ -33,6 +35,12 @@ def setup():
             default="",
         )
         for port in [p.strip() for p in custom_ports.split(",") if p.strip()]:
+            try:
+                port = validate_port_spec(port)
+            except ValidationError as exc:
+                console.print(f"[red]Skipping invalid port spec: {exc}[/red]")
+                logger.warning(f"[firewall] Skipping invalid port spec: {port}: {exc}")
+                continue
             shell.run(["sudo", "ufw", "allow", port])
             logger.info(f"[firewall] Allowed custom port/service: {port}")
     shell.run(["sudo", "ufw", "logging", "on"])

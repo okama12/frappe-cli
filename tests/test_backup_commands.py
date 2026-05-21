@@ -14,4 +14,4 @@ def test_backup_setup_help():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ["backup", "setup", "--help"])
     assert result.exit_code == 0
-    assert "Set up robust backups with external HD and cron job" in result.output
+    assert "rotated nightly backups" in result.output

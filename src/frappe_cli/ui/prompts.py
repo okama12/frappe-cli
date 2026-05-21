@@ -1,10 +1,42 @@
+from typing import Callable
+
 from rich.console import Console
 from rich.prompt import Confirm, Prompt
 
 from ..install.context import InstallContext
 from ..install.state import InstallState
+from ..utils.errors import ValidationError
 from ..utils.git_repo import is_official_frappe_app, resolve_app_branch
+from ..utils.validators import (
+    validate_bench_name,
+    validate_branch_name,
+    validate_email,
+    validate_git_url,
+    validate_site_name,
+)
 from .panels import print_header
+
+
+def _ask_validated(
+    console: Console,
+    label: str,
+    validator: Callable[[str], str],
+    *,
+    default: str | None = None,
+    allow_empty: bool = False,
+) -> str:
+    """Prompt repeatedly until *validator* accepts the input."""
+    while True:
+        if default is None:
+            value = Prompt.ask(label)
+        else:
+            value = Prompt.ask(label, default=default)
+        if allow_empty and not value:
+            return ""
+        try:
+            return validator(value)
+        except ValidationError as exc:
+            console.print(f"  [red]{exc}[/red]")
 
 
 def _detect_ubuntu_version() -> str:
@@ -27,8 +59,10 @@ def _resolve_branch_for_prompt(
 
     if is_official_frappe_app(app_url):
         # Official apps (erpnext, hrms, …) are versioned the same as Frappe.
-        return Prompt.ask(
+        return _ask_validated(
+            console,
             "  App branch",
+            validate_branch_name,
             default=frappe_branch,
         )
 
@@ -45,7 +79,7 @@ def _resolve_branch_for_prompt(
             f"Suggested branch: [bold]{branch}[/bold][/dim]"
         )
 
-    return Prompt.ask("  App branch", default=branch)
+    return _ask_validated(console, "  App branch", validate_branch_name, default=branch)
 
 
 def _prompt_mariadb_password(console: Console) -> str:
@@ -68,19 +102,33 @@ def collect_inputs(
     console.print("\n  Let's get your Frappe production server ready.\n")
 
     console.print("  [bold]── Server Configuration ──[/bold]")
-    bench_name = Prompt.ask("  Bench name", default="frappe-bench")
-    site_name = Prompt.ask("  Site name (FQDN)")
-    frappe_branch = Prompt.ask("  Frappe branch", default="version-15")
+    bench_name = _ask_validated(
+        console, "  Bench name", validate_bench_name, default="frappe-bench"
+    )
+    site_name = _ask_validated(console, "  Site name (FQDN)", validate_site_name)
+    frappe_branch = _ask_validated(
+        console, "  Frappe branch", validate_branch_name, default="version-15"
+    )
 
     console.print("\n  [bold]── App ──[/bold]")
-    app_url = Prompt.ask("  App GitHub URL (leave blank for Frappe only)", default="")
+    app_url = _ask_validated(
+        console,
+        "  App GitHub URL (leave blank for Frappe only)",
+        validate_git_url,
+        default="",
+        allow_empty=True,
+    )
     app_branch = _resolve_branch_for_prompt(console, app_url, frappe_branch)
 
     console.print("\n  [bold]── Credentials ──[/bold]")
     sudo_password = Prompt.ask("  Sudo password", password=True)
     mariadb_root_password = _prompt_mariadb_password(console)
     admin_password = Prompt.ask("  Frappe site admin password", password=True)
-    ssl_email = Prompt.ask("  SSL email (Let's Encrypt)") if not skip_ssl else ""
+    ssl_email = (
+        _ask_validated(console, "  SSL email (Let's Encrypt)", validate_email)
+        if not skip_ssl
+        else ""
+    )
 
     console.print("\n  [bold]── Daily Developer Workflow ──[/bold]")
     enable_passwordless_restart = Confirm.ask(

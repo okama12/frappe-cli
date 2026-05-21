@@ -19,6 +19,9 @@ from __future__ import annotations
 import subprocess
 from typing import Optional
 
+from .errors import ValidationError
+from .validators import validate_git_url
+
 # Official apps hosted under github.com/frappe/<name>
 _OFFICIAL_FRAPPE_APPS: frozenset[str] = frozenset(
     [
@@ -76,12 +79,21 @@ def is_official_frappe_app(url: str) -> bool:
 def list_remote_branches(url: str, *, timeout: int = 10) -> Optional[list[str]]:
     """Return the list of branch names from *url* via ``git ls-remote``.
 
-    Returns None on any failure (auth error, network, timeout, git not on PATH).
-    Never raises.
+    Returns None on any failure (auth error, network, timeout, git not on PATH,
+    or a URL that fails the strict allowlist in
+    :func:`frappe_cli.utils.validators.validate_git_url`). Never raises.
+
+    Validating the URL before handing it to ``git`` blocks tricks like
+    ``--upload-pack=$(rm -rf /)``-style argument injection and stops
+    accidental fetches from ``file://`` or RFC1918 IPs.
     """
     try:
+        validate_git_url(url)
+    except ValidationError:
+        return None
+    try:
         result = subprocess.run(
-            ["git", "ls-remote", "--heads", url],
+            ["git", "ls-remote", "--heads", "--", url],
             capture_output=True,
             text=True,
             timeout=timeout,
