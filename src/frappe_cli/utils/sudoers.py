@@ -27,18 +27,51 @@ _MANAGED_MARKER = "# Managed by frappe-cli"
 _LOCAL_STATE = Path.home() / ".frappe-cli" / "passwordless-restart.json"
 
 
+_SUPERVISORCTL_CANDIDATES = (
+    "/usr/bin/supervisorctl",
+    "/usr/local/bin/supervisorctl",
+    "/sbin/supervisorctl",
+    "/usr/sbin/supervisorctl",
+    "/usr/local/sbin/supervisorctl",
+)
+
+
 def _supervisorctl_path() -> str:
-    """Return the absolute path to supervisorctl, or a safe default."""
+    """Return the most likely absolute path to supervisorctl.
+
+    Prefers the version that already exists on disk in a system bindir
+    (those are the ones sudo will resolve to via ``secure_path``). Falls
+    back to ``shutil.which`` and finally to ``/usr/bin/supervisorctl``.
+    """
+    for candidate in _SUPERVISORCTL_CANDIDATES:
+        if Path(candidate).exists():
+            return candidate
     found = shutil.which("supervisorctl")
     return found or "/usr/bin/supervisorctl"
 
 
+def _supervisorctl_paths_for_rule() -> list[str]:
+    """All existing supervisorctl absolute paths, for use in a sudoers rule.
+
+    Including every real path makes the NOPASSWD rule resilient to differences
+    between the calling shell's PATH and sudo's ``secure_path``. If two of the
+    listed paths exist and are different binaries, both are explicitly allowed
+    — the rule still scopes to ``supervisorctl`` only.
+    """
+    found = [p for p in _SUPERVISORCTL_CANDIDATES if Path(p).exists()]
+    if not found:
+        found = [_supervisorctl_path()]
+    return found
+
+
 def _drop_in_content(user: str) -> str:
-    binary = _supervisorctl_path()
+    binaries = _supervisorctl_paths_for_rule()
+    rule_targets = ", ".join(binaries)
     return (
         f"{_MANAGED_MARKER}\n"
         f"# Remove with: fp sudo disable-restart\n"
-        f"{user} ALL=(ALL) NOPASSWD: {binary}\n"
+        f"# Grants {user} passwordless sudo for supervisorctl only.\n"
+        f"{user} ALL=(ALL) NOPASSWD: {rule_targets}\n"
     )
 
 
@@ -102,12 +135,42 @@ def is_managed(sudo_password: str | None = None) -> bool:
 
 
 def is_enabled() -> bool:
-    """Return True when passwordless supervisorctl is currently active."""
+    """Return True when passwordless supervisorctl is currently active.
+
+    .. warning::
+        This is a heuristic. ``sudo -n`` succeeds either because a NOPASSWD
+        rule exists OR because sudo's timestamp cache is still valid. The
+        result is therefore unreliable as a signal of *real* configuration;
+        prefer :func:`probe_passwordless` for definitive answers.
+    """
     result = subprocess.run(
         ["sudo", "-n", "supervisorctl", "version"],
         capture_output=True,
     )
     return result.returncode == 0
+
+
+def probe_passwordless() -> tuple[bool, str]:
+    """Definitively test whether NOPASSWD supervisorctl is configured.
+
+    Uses ``sudo -k -n`` which **invalidates the caller's sudo timestamp** and
+    then runs without prompting. If sudoers has a real NOPASSWD rule for
+    ``supervisorctl``, this still succeeds. If not, sudo exits non-zero
+    because it cannot prompt with ``-n``.
+
+    Returns ``(active, message)``. The side effect (cache invalidation) is the
+    price for an honest answer; callers should warn the user before invoking.
+    """
+    result = subprocess.run(
+        ["sudo", "-k", "-n", "supervisorctl", "version"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode == 0:
+        return True, "NOPASSWD rule for supervisorctl is active in sudoers."
+    stderr = (result.stderr or "").strip().splitlines()
+    detail = stderr[-1] if stderr else f"exit code {result.returncode}"
+    return False, f"sudo -k -n supervisorctl failed: {detail}"
 
 
 def _expected_rule_line(user: str | None = None) -> str:
@@ -187,11 +250,6 @@ def describe_drop_in(sudo_password: str | None = None) -> str:
 
     if has_local_marker():
         return "managed"
-
-    if is_enabled():
-        rules = list_nopasswd_supervisorctl_rules()
-        if any(rule_matches_frappe_install(r) for r in rules):
-            return "managed"
 
     return "absent"
 
