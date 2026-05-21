@@ -361,4 +361,7 @@ class TestFpSudoCommands:
             result = runner.invoke(cli, ["sudo", "disable-restart"])
         assert result.exit_code == 0
         assert "still active" in result.output.lower()
-        assert "bench" in result.output.lower() and "setup production" in result.output.lower()
+        assert (
+            "bench" in result.output.lower()
+            and "setup production" in result.output.lower()
+        )
