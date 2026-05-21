@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import subprocess
 from unittest.mock import patch
 
@@ -112,6 +113,42 @@ class TestSudoersUtil:
             assert is_managed("secret") is True
         mock_run.assert_called_once()
 
+    def test_describe_drop_in_uses_local_marker_when_path_unreadable(
+        self, tmp_path, monkeypatch
+    ):
+        marker = tmp_path / "passwordless-restart.json"
+        marker.write_text(
+            '{"drop_in": "/etc/sudoers.d/frappe-cli", "user": "testuser"}\n'
+        )
+        monkeypatch.setattr("frappe_cli.utils.sudoers._LOCAL_STATE", marker)
+        monkeypatch.setattr(
+            "frappe_cli.utils.sudoers.getpass.getuser", lambda: "testuser"
+        )
+        with (
+            patch("frappe_cli.utils.sudoers._path_exists", return_value=False),
+            patch("frappe_cli.utils.sudoers.is_enabled", return_value=False),
+        ):
+            from frappe_cli.utils.sudoers import describe_drop_in
+
+            assert describe_drop_in() == "managed"
+
+    def test_write_and_clear_local_marker(self, tmp_path, monkeypatch):
+        marker = tmp_path / "passwordless-restart.json"
+        monkeypatch.setattr("frappe_cli.utils.sudoers._LOCAL_STATE", marker)
+        monkeypatch.setattr(
+            "frappe_cli.utils.sudoers.getpass.getuser", lambda: "testuser"
+        )
+        from frappe_cli.utils.sudoers import (
+            clear_local_marker,
+            has_local_marker,
+            write_local_marker,
+        )
+
+        write_local_marker()
+        assert has_local_marker()
+        clear_local_marker()
+        assert not has_local_marker()
+
     def test_enable_calls_visudo_and_install(self, tmp_path):
         fake_path = tmp_path / "frappe-cli"
         with (
@@ -130,6 +167,29 @@ class TestSudoersUtil:
         assert visudo_called
         # install was called via _sudo_run
         assert mock_sudo.called
+
+    def test_enable_writes_local_marker(self, tmp_path, monkeypatch):
+        marker = tmp_path / "passwordless-restart.json"
+        monkeypatch.setattr("frappe_cli.utils.sudoers._LOCAL_STATE", marker)
+        monkeypatch.setattr(
+            "frappe_cli.utils.sudoers.getpass.getuser", lambda: "testuser"
+        )
+        fake_path = tmp_path / "frappe-cli"
+        with (
+            patch("frappe_cli.utils.sudoers.SUDOERS_PATH", fake_path),
+            patch("frappe_cli.utils.sudoers._path_exists", return_value=False),
+            patch("frappe_cli.utils.sudoers.is_managed", return_value=False),
+            patch("frappe_cli.utils.sudoers._sudo_run"),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = subprocess.CompletedProcess([], 0)
+            from frappe_cli.utils.sudoers import enable
+
+            enable("secret")
+            assert marker.exists()
+            data = json.loads(marker.read_text(encoding="utf-8"))
+            assert data["user"] == "testuser"
+            assert data["drop_in"] == str(fake_path)
 
     def test_enable_dry_run_makes_no_system_calls(self, tmp_path):
         fake_path = tmp_path / "frappe-cli"
@@ -279,7 +339,7 @@ class TestFpSudoCommands:
             result = runner.invoke(cli, ["sudo", "status"])
         assert result.exit_code == 0
         assert "active" in result.output.lower()
-        assert "managed by frappe-cli" in result.output.lower()
+        assert "installed by fp sudo" in result.output.lower()
 
     def test_status_disabled(self):
         runner = CliRunner()
@@ -337,6 +397,7 @@ class TestFpSudoCommands:
                 return_value=False,
             ),
             patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=False),
+            patch("frappe_cli.dev.sudo_commands.has_local_marker", return_value=False),
         ):
             result = runner.invoke(cli, ["sudo", "disable-restart"])
         assert result.exit_code == 0

@@ -16,6 +16,7 @@ Safety rules this module enforces:
 from __future__ import annotations
 
 import getpass
+import json
 import shutil
 import subprocess
 import tempfile
@@ -23,6 +24,7 @@ from pathlib import Path
 
 SUDOERS_PATH = Path("/etc/sudoers.d/frappe-cli")
 _MANAGED_MARKER = "# Managed by frappe-cli"
+_LOCAL_STATE = Path.home() / ".frappe-cli" / "passwordless-restart.json"
 
 
 def _supervisorctl_path() -> str:
@@ -108,6 +110,49 @@ def is_enabled() -> bool:
     return result.returncode == 0
 
 
+def _expected_rule_line(user: str | None = None) -> str:
+    user = user or getpass.getuser()
+    return f"{user} ALL=(ALL) NOPASSWD: {_supervisorctl_path()}"
+
+
+def write_local_marker() -> None:
+    """Record that frappe-cli installed the drop-in (for status on 0750 sudoers.d)."""
+    _LOCAL_STATE.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "drop_in": str(SUDOERS_PATH),
+        "user": getpass.getuser(),
+        "supervisorctl": _supervisorctl_path(),
+        "rule": _expected_rule_line(),
+    }
+    _LOCAL_STATE.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
+def clear_local_marker() -> None:
+    """Remove local install record."""
+    _LOCAL_STATE.unlink(missing_ok=True)
+
+
+def has_local_marker() -> bool:
+    """True when frappe-cli previously installed the drop-in on this machine."""
+    if not _LOCAL_STATE.exists():
+        return False
+    try:
+        data = json.loads(_LOCAL_STATE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return False
+    return data.get("user") == getpass.getuser() and data.get("drop_in") == str(
+        SUDOERS_PATH
+    )
+
+
+def rule_matches_frappe_install(rule: str) -> bool:
+    """True when a sudo -l line matches what frappe-cli writes."""
+    low = rule.lower()
+    user = getpass.getuser().lower()
+    binary = _supervisorctl_path().lower()
+    return user in low and binary in low and "nopasswd" in low
+
+
 def list_nopasswd_supervisorctl_rules() -> list[str]:
     """Return ``sudo -l`` lines that grant passwordless supervisorctl."""
     result = subprocess.run(
@@ -126,12 +171,29 @@ def list_nopasswd_supervisorctl_rules() -> list[str]:
 
 
 def describe_drop_in(sudo_password: str | None = None) -> str:
-    """Human-readable state of the frappe-cli drop-in file."""
-    if not _path_exists(sudo_password):
-        return "absent"
-    if is_managed(sudo_password):
+    """Human-readable state of the frappe-cli drop-in file.
+
+    Returns one of: ``managed``, ``present_other``, ``absent``.
+
+    On Ubuntu/Debian ``/etc/sudoers.d/`` is mode 0750, so checks without a
+    sudo password often cannot stat the file. We fall back to the local marker
+    frappe-cli writes on ``enable``, and to ``sudo -l`` when passwordless
+    supervisorctl is already active.
+    """
+    if _path_exists(sudo_password):
+        if is_managed(sudo_password):
+            return "managed"
+        return "present_other"
+
+    if has_local_marker():
         return "managed"
-    return "present_other"
+
+    if is_enabled():
+        rules = list_nopasswd_supervisorctl_rules()
+        if any(rule_matches_frappe_install(r) for r in rules):
+            return "managed"
+
+    return "absent"
 
 
 def enable(sudo_password: str, *, dry_run: bool = False) -> None:
@@ -196,6 +258,7 @@ def enable(sudo_password: str, *, dry_run: bool = False) -> None:
             ],
             sudo_password,
         )
+        write_local_marker()
     finally:
         Path(tmp_path).unlink(missing_ok=True)
 
@@ -218,6 +281,7 @@ def disable(sudo_password: str, *, dry_run: bool = False) -> None:
         return
 
     _sudo_run(["rm", "-f", str(SUDOERS_PATH)], sudo_password)
+    clear_local_marker()
 
 
 def _sudo_run(cmd: list[str], sudo_password: str) -> None:

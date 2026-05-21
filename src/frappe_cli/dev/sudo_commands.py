@@ -17,13 +17,17 @@ from rich.prompt import Prompt
 
 from frappe_cli.utils.sudoers import (
     SUDOERS_PATH,
+    clear_local_marker,
     describe_drop_in,
     disable,
     enable,
+    has_local_marker,
     is_enabled,
     is_managed,
     list_nopasswd_supervisorctl_rules,
     path_exists,
+    rule_matches_frappe_install,
+    write_local_marker,
 )
 
 _console = Console()
@@ -53,25 +57,37 @@ def sudo_status() -> None:
         if drop_in == "managed":
             _console.print(
                 f"  [dim]frappe-cli drop-in:[/dim] [green]{SUDOERS_PATH}[/green] "
-                "[dim](managed by frappe-cli)[/dim]"
+                "[dim](installed by fp sudo enable-restart)[/dim]"
             )
+            if has_local_marker() and not path_exists():
+                _console.print(
+                    "  [dim](file is root-only; tracked via ~/.frappe-cli/)[/dim]"
+                )
         elif drop_in == "present_other":
             _console.print(
                 f"  [dim]frappe-cli path:[/dim] [yellow]{SUDOERS_PATH}[/yellow] "
                 "[dim]exists but was not written by frappe-cli[/dim]"
             )
         else:
-            _console.print(
-                f"  [dim]frappe-cli drop-in:[/dim] [dim]not present at {SUDOERS_PATH}[/dim]"
+            bench_only = rules and not any(
+                rule_matches_frappe_install(r) for r in rules
             )
-            if rules:
+            if bench_only:
                 _console.print(
-                    "  [dim]Passwordless restart is coming from another sudoers "
-                    "rule (common after bench setup production).[/dim]"
+                    "  [dim]frappe-cli drop-in:[/dim] [dim]not installed[/dim]"
+                )
+                _console.print(
+                    "  [dim]Passwordless access is from another sudoers rule "
+                    "(common after bench setup production).[/dim]"
                 )
                 _console.print(
                     "  [dim]fp sudo disable-restart only removes the frappe-cli "
-                    "file — it cannot remove bench/other rules.[/dim]"
+                    "file — use [cyan]sudo visudo[/cyan] to edit bench rules.[/dim]"
+                )
+            else:
+                _console.print(
+                    f"  [dim]frappe-cli drop-in:[/dim] [dim]not detected at "
+                    f"{SUDOERS_PATH}[/dim]"
                 )
     else:
         _console.print(
@@ -121,6 +137,7 @@ def enable_restart(dry_run: bool) -> None:
     sudo_password = Prompt.ask("  Sudo password", password=True)
 
     if is_managed(sudo_password):
+        write_local_marker()
         _console.print("[green]✓[/green] frappe-cli drop-in already installed.")
         if is_enabled():
             _console.print(
@@ -136,13 +153,20 @@ def enable_restart(dry_run: bool) -> None:
 
     try:
         enable(sudo_password)
-        _console.print(
-            "[green]✓[/green] frappe-cli sudoers drop-in installed.\n"
-            "  [dim]fp restart and fp deploy will not prompt for a password "
-            f"({SUDOERS_PATH}).[/dim]"
-        )
     except RuntimeError as exc:
         raise click.ClickException(str(exc)) from exc
+
+    if not is_enabled():
+        raise click.ClickException(
+            f"Installed {SUDOERS_PATH} but passwordless supervisorctl is not active.\n"
+            "  Run [cyan]sudo visudo -c[/cyan] and [cyan]fp sudo status[/cyan]."
+        )
+
+    _console.print(
+        "[green]✓[/green] frappe-cli sudoers drop-in installed.\n"
+        "  [dim]fp restart and fp deploy will not prompt for a password "
+        f"({SUDOERS_PATH}).[/dim]"
+    )
 
 
 @sudo_group.command("disable-restart")
@@ -182,6 +206,9 @@ def disable_restart(dry_run: bool) -> None:
     sudo_password = Prompt.ask("  Sudo password", password=True)
 
     if not path_exists(sudo_password):
+        had_marker = has_local_marker()
+        if had_marker:
+            clear_local_marker()
         if is_enabled():
             rules = list_nopasswd_supervisorctl_rules()
             _console.print(
@@ -193,6 +220,11 @@ def disable_restart(dry_run: bool) -> None:
             _console.print(
                 "\n  [dim]To require a password for fp restart, remove or edit "
                 "that rule manually (e.g. [cyan]sudo visudo[/cyan]).[/dim]"
+            )
+        elif had_marker:
+            _console.print(
+                "[dim]frappe-cli drop-in was already removed; "
+                "cleared local install record.[/dim]"
             )
         else:
             _console.print(
