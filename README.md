@@ -17,6 +17,8 @@
            Install · Operate · Develop — all in one command
 ```
 
+![Frappe CLI install wizard — interactive production setup](assets/img/frappe_wizard.gif)
+
 **A production-ready CLI that installs and operates [Frappe](https://frappeframework.com/) / [ERPNext](https://erpnext.com/) — from a bare VPS to a working HTTPS site in one command. Also your daily `bench` shortcut.**
 
 Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https://rich.readthedocs.io/). Every step is independently runnable, self-healing, and idempotent — safe to re-run on partially-installed servers.
