@@ -267,20 +267,32 @@ class TestFpSudoCommands:
         runner = CliRunner()
         with (
             patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=True),
-            patch("frappe_cli.dev.sudo_commands.is_managed", return_value=True),
-            patch("frappe_cli.dev.sudo_commands.SUDOERS_PATH") as mock_path,
+            patch(
+                "frappe_cli.dev.sudo_commands.describe_drop_in",
+                return_value="managed",
+            ),
+            patch(
+                "frappe_cli.dev.sudo_commands.list_nopasswd_supervisorctl_rules",
+                return_value=["(ALL) NOPASSWD: /usr/bin/supervisorctl"],
+            ),
         ):
-            mock_path.exists.return_value = True
             result = runner.invoke(cli, ["sudo", "status"])
         assert result.exit_code == 0
-        assert "enabled" in result.output.lower()
+        assert "active" in result.output.lower()
+        assert "managed by frappe-cli" in result.output.lower()
 
     def test_status_disabled(self):
         runner = CliRunner()
-        with patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=False):
+        with (
+            patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=False),
+            patch(
+                "frappe_cli.dev.sudo_commands.describe_drop_in",
+                return_value="absent",
+            ),
+        ):
             result = runner.invoke(cli, ["sudo", "status"])
         assert result.exit_code == 0
-        assert "disabled" in result.output.lower()
+        assert "not" in result.output.lower()
         assert "enable-restart" in result.output
 
     def test_enable_restart_dry_run(self):
@@ -300,7 +312,7 @@ class TestFpSudoCommands:
         ):
             result = runner.invoke(cli, ["sudo", "enable-restart"])
         assert result.exit_code == 0
-        assert "already enabled" in result.output.lower()
+        assert "already installed" in result.output.lower()
 
     def test_disable_restart_dry_run(self, tmp_path):
         fake_path = tmp_path / "frappe-cli"
@@ -324,7 +336,29 @@ class TestFpSudoCommands:
                 "frappe_cli.dev.sudo_commands.path_exists",
                 return_value=False,
             ),
+            patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=False),
         ):
             result = runner.invoke(cli, ["sudo", "disable-restart"])
         assert result.exit_code == 0
         assert "nothing to remove" in result.output.lower()
+
+    def test_disable_restart_still_active_via_other_rule(self):
+        runner = CliRunner()
+        with (
+            patch(
+                "frappe_cli.dev.sudo_commands.Prompt.ask",
+                return_value="secret",
+            ),
+            patch("frappe_cli.dev.sudo_commands.path_exists", return_value=True),
+            patch("frappe_cli.dev.sudo_commands.is_managed", return_value=True),
+            patch("frappe_cli.dev.sudo_commands.disable"),
+            patch("frappe_cli.dev.sudo_commands.is_enabled", return_value=True),
+            patch(
+                "frappe_cli.dev.sudo_commands.list_nopasswd_supervisorctl_rules",
+                return_value=["(ALL) NOPASSWD: /usr/bin/supervisorctl"],
+            ),
+        ):
+            result = runner.invoke(cli, ["sudo", "disable-restart"])
+        assert result.exit_code == 0
+        assert "still active" in result.output.lower()
+        assert "bench" in result.output.lower() and "setup production" in result.output.lower()

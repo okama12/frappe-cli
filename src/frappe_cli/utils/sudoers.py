@@ -108,6 +108,32 @@ def is_enabled() -> bool:
     return result.returncode == 0
 
 
+def list_nopasswd_supervisorctl_rules() -> list[str]:
+    """Return ``sudo -l`` lines that grant passwordless supervisorctl."""
+    result = subprocess.run(
+        ["sudo", "-n", "-l"],
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        return []
+    rules: list[str] = []
+    for line in result.stdout.splitlines():
+        low = line.lower()
+        if "supervisorctl" in low and ("nopasswd" in low or "may run" in low):
+            rules.append(line.strip())
+    return rules
+
+
+def describe_drop_in(sudo_password: str | None = None) -> str:
+    """Human-readable state of the frappe-cli drop-in file."""
+    if not _path_exists(sudo_password):
+        return "absent"
+    if is_managed(sudo_password):
+        return "managed"
+    return "present_other"
+
+
 def enable(sudo_password: str, *, dry_run: bool = False) -> None:
     """Write the drop-in and validate with visudo.
 
