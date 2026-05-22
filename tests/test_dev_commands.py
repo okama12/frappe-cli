@@ -293,3 +293,57 @@ def test_restart_does_not_inject_site(tmp_path):
         assert cmd == ["bench", "restart"]
     finally:
         os.chdir(orig_dir)
+
+
+# ── short dev aliases (fp r / m / c / db) ─────────────────────────────────────
+
+
+def _invoke_alias(tmp_path: Path, alias: str) -> list[str]:
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            result = runner.invoke(cli, [alias])
+        assert result.exit_code == 0, result.output
+        return mock_run.call_args[0][0]
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_alias_r_is_restart(tmp_path):
+    assert _invoke_alias(tmp_path, "r") == ["bench", "restart"]
+
+
+def test_alias_m_is_migrate(tmp_path):
+    assert _invoke_alias(tmp_path, "m") == ["bench", "--site", "dev.local", "migrate"]
+
+
+def test_alias_c_is_console(tmp_path):
+    assert _invoke_alias(tmp_path, "c") == ["bench", "--site", "dev.local", "console"]
+
+
+def test_alias_db_is_mariadb(tmp_path):
+    assert _invoke_alias(tmp_path, "db") == ["bench", "--site", "dev.local", "mariadb"]
+
+
+def test_full_names_still_work_after_aliases_added(tmp_path):
+    """Canonical names (restart, migrate, …) must remain unchanged."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    (bench / ".fp.yaml").write_text(yaml.dump({"site": "dev.local"}))
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch("subprocess.run") as mock_run:
+            mock_run.return_value.returncode = 0
+            for name in ("restart", "migrate", "console", "mariadb"):
+                mock_run.reset_mock()
+                result = runner.invoke(cli, [name])
+                assert result.exit_code == 0, f"{name}: {result.output}"
+                assert mock_run.called
+    finally:
+        os.chdir(orig_dir)

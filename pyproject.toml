@@ -4,7 +4,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "frappe-cli"
-version = "1.0.15"
+version = "1.0.16"
 description = "Professional CLI for Frappe deployment and management."
 authors = ["Rashidi Okama <rashidokama@gmail.com>"]
 readme = "README.md"

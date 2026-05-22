@@ -20,8 +20,25 @@ from frappe_cli.step import step
 
 __version__ = importlib.metadata.version("frappe-cli")
 
+# Short aliases for daily dev passthroughs (same behavior as the full names).
+# Not documented in README — optional ergonomics; full commands remain canonical.
+DEV_COMMAND_ALIASES: dict[str, str] = {
+    "r": "restart",
+    "m": "migrate",
+    "c": "console",
+    "db": "mariadb",
+}
 
-@click.group()
+
+class FrappeCliGroup(click.Group):
+    """Root Click group that resolves single-letter dev shortcuts."""
+
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+        cmd_name = DEV_COMMAND_ALIASES.get(cmd_name, cmd_name)
+        return super().get_command(ctx, cmd_name)
+
+
+@click.group(cls=FrappeCliGroup)
 @click.option("--config", type=click.Path(exists=True), help="Path to YAML config file")
 @click.pass_context
 def cli(ctx, config):
