@@ -51,8 +51,13 @@ class SiteCreateStep(InstallStep):
             return
 
         env = self._site_env(ctx)
-        # bench prompts for admin password interactively; pipe it via stdin.
-        input_bytes = f"{ctx.admin_password}\n{ctx.admin_password}\n".encode()
+        # bench prompts: (1) MySQL root password, (2) admin password, (3) re-enter admin.
+        # All three are piped via stdin; start_new_session forces getpass to read stdin.
+        input_bytes = (
+            f"{ctx.mariadb_root_password}\n"
+            f"{ctx.admin_password}\n"
+            f"{ctx.admin_password}\n"
+        ).encode()
 
         if ctx.log_fn:
             self._log_command(ctx)

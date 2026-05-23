@@ -653,8 +653,9 @@ class TestSiteCreateStep:
         assert "--mariadb-user-host-login-scope=%" in cmd
         assert "--no-mariadb-socket" not in cmd
 
-    def test_run_pipes_admin_password_to_stdin(self):
-        """Admin password must be piped via stdin, not via FRAPPE_ADMIN_PASSWORD env var."""
+    def test_run_pipes_all_passwords_to_stdin(self):
+        """bench new-site prompts for MySQL root password first, then admin password twice.
+        All three lines must be piped so stdin never runs dry and triggers an Abort."""
         from frappe_cli.install.steps.site import SiteCreateStep
 
         step = SiteCreateStep()
@@ -669,7 +670,10 @@ class TestSiteCreateStep:
         kwargs = mock_popen.call_args.kwargs
         input_bytes = kwargs.get("input_bytes")
         assert input_bytes is not None, "input_bytes must be passed to _popen_with_env"
-        assert b"adminpass" in input_bytes
+        # mariadb root password answers bench's own "MySQL root password:" prompt
+        assert b"dbpass" in input_bytes
+        # admin password sent twice for Set/Re-enter prompts
+        assert input_bytes.count(b"adminpass") == 2
 
     def test_popen_with_env_uses_start_new_session(self):
         """Subprocess must run in a new session so getpass cannot open /dev/tty
