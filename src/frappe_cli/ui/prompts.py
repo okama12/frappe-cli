@@ -180,10 +180,9 @@ def collect_credentials_for_resume(
     # sudo is always needed — remaining steps (production, SSL, restart) all use it
     sudo_password = Prompt.ask("  Sudo password", password=True)
 
-    # Only needed if MariaDB hasn't been secured yet
-    mariadb_root_password = (
-        "" if "mariadb_secure" in done else _prompt_mariadb_password(console)
-    )
+    # Needed for MariaDB setup steps AND for site creation (piped to bench new-site stdin).
+    needs_mariadb = "mariadb_secure" not in done or "site_create" not in done
+    mariadb_root_password = _prompt_mariadb_password(console) if needs_mariadb else ""
 
     # Only needed if the site hasn't been created yet
     admin_password = (

@@ -653,6 +653,13 @@ class TestSiteCreateStep:
         assert "--mariadb-user-host-login-scope=%" in cmd
         assert "--no-mariadb-socket" not in cmd
 
+    def test_cmd_includes_force_flag(self):
+        """--force drops any stale database from a previous failed attempt."""
+        from frappe_cli.install.steps.site import SiteCreateStep
+
+        cmd = SiteCreateStep()._new_site_cmd(make_ctx())
+        assert "--force" in cmd
+
     def test_run_pipes_all_passwords_to_stdin(self):
         """bench new-site prompts for MySQL root password first, then admin password twice.
         All three lines must be piped so stdin never runs dry and triggers an Abort."""

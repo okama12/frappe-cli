@@ -30,6 +30,7 @@ class SiteCreateStep(InstallStep):
             "--mariadb-root-username",
             "root",
             "--mariadb-user-host-login-scope=%",
+            "--force",
         ]
 
     def _site_env(self, ctx: InstallContext) -> dict:
