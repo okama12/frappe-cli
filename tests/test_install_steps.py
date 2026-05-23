@@ -671,6 +671,33 @@ class TestSiteCreateStep:
         assert input_bytes is not None, "input_bytes must be passed to _popen_with_env"
         assert b"adminpass" in input_bytes
 
+    def test_popen_with_env_uses_start_new_session(self):
+        """Subprocess must run in a new session so getpass cannot open /dev/tty
+        and is forced to read the admin password from our stdin pipe instead."""
+        from frappe_cli.install.steps.site import SiteCreateStep
+
+        step = SiteCreateStep()
+        ctx = make_ctx()
+        ctx.log_fn = [].append
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.__iter__ = MagicMock(return_value=iter([]))
+        mock_proc.stdout.readline.return_value = b""
+        mock_proc.returncode = 0
+        mock_proc.stdin = MagicMock()
+
+        with patch("subprocess.Popen", return_value=mock_proc) as mock_popen:
+            step._popen_with_env(
+                ctx,
+                ["bench", "new-site", "test.local"],
+                cwd="/tmp",
+                env={},
+                input_bytes=b"pass\npass\n",
+            )
+
+        call_kwargs = mock_popen.call_args.kwargs
+        assert call_kwargs.get("start_new_session") is True
+
 
 # ── AppGetStep ────────────────────────────────────────────────────────────────
 

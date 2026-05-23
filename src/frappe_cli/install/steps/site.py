@@ -67,6 +67,7 @@ class SiteCreateStep(InstallStep):
                 capture_output=True,
                 check=True,
                 env=env,
+                start_new_session=True,
             )
         except subprocess.CalledProcessError as e:
             raise StepError(
@@ -95,6 +96,7 @@ class SiteCreateStep(InstallStep):
             stderr=subprocess.STDOUT,
             env=env,
             cwd=cwd,
+            start_new_session=True,
         )
         if input_bytes and proc.stdin:
             proc.stdin.write(input_bytes)
