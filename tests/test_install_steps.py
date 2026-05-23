@@ -621,9 +621,9 @@ class TestSiteCreateStep:
         assert "--mariadb-root-password" not in cmd
         assert "--admin-password" not in cmd
         assert "dbpass" not in " ".join(cmd)
-        # They live in the child env instead.
+        # MariaDB password lives in child env; admin password travels via stdin.
         assert env["MYSQL_PWD"] == "dbpass"
-        assert env["FRAPPE_ADMIN_PASSWORD"] == "adminpass"
+        assert "FRAPPE_ADMIN_PASSWORD" not in env
         # The streamed log line should not contain the secrets either.
         assert any("new-site" in line for line in logs)
         assert not any("dbpass" in line for line in logs)
@@ -643,7 +643,33 @@ class TestSiteCreateStep:
         assert "--mariadb-root-password" not in cmd
         assert "--admin-password" not in cmd
         assert env["MYSQL_PWD"] == "dbpass"
-        assert env["FRAPPE_ADMIN_PASSWORD"] == "adminpass"
+        assert "FRAPPE_ADMIN_PASSWORD" not in env
+
+    def test_cmd_uses_mariadb_user_host_login_scope(self):
+        """--no-mariadb-socket is deprecated; must use --mariadb-user-host-login-scope=%"""
+        from frappe_cli.install.steps.site import SiteCreateStep
+
+        cmd = SiteCreateStep()._new_site_cmd(make_ctx())
+        assert "--mariadb-user-host-login-scope=%" in cmd
+        assert "--no-mariadb-socket" not in cmd
+
+    def test_run_pipes_admin_password_to_stdin(self):
+        """Admin password must be piped via stdin, not via FRAPPE_ADMIN_PASSWORD env var."""
+        from frappe_cli.install.steps.site import SiteCreateStep
+
+        step = SiteCreateStep()
+        ctx = make_ctx()
+        logs: list[str] = []
+        ctx.log_fn = logs.append
+
+        with patch.object(step, "_popen_with_env") as mock_popen:
+            mock_popen.return_value = None
+            step.run(ctx)
+
+        kwargs = mock_popen.call_args.kwargs
+        input_bytes = kwargs.get("input_bytes")
+        assert input_bytes is not None, "input_bytes must be passed to _popen_with_env"
+        assert b"adminpass" in input_bytes
 
 
 # ── AppGetStep ────────────────────────────────────────────────────────────────

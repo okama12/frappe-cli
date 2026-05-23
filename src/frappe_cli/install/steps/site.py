@@ -10,17 +10,10 @@ class SiteCreateStep(InstallStep):
 
     Security note — passwords on argv:
 
-    Earlier revisions passed both the MariaDB root password and the Frappe
-    admin password as ``--mariadb-root-password`` / ``--admin-password`` flags.
-    Anything on argv is world-readable through ``/proc/<pid>/cmdline``, which
-    is unacceptable on a multi-user box. We now feed both passwords via
-    environment variables that ``bench`` recognises:
-
-    * ``MYSQL_PWD`` — picked up by the MariaDB client library.
-    * ``FRAPPE_ADMIN_PASSWORD`` — read by ``bench new-site`` when present.
-
-    Both vars live only in the spawned child's environment and are wiped when
-    the call returns.
+    Passwords are never passed on argv (world-readable via /proc/<pid>/cmdline).
+    ``MYSQL_PWD`` feeds the MariaDB root password via the client library env var.
+    The Frappe admin password is piped to stdin because ``FRAPPE_ADMIN_PASSWORD``
+    is not reliably honoured by all installed bench/frappe versions.
     """
 
     name = "site_create"
@@ -36,13 +29,12 @@ class SiteCreateStep(InstallStep):
             ctx.site_name,
             "--mariadb-root-username",
             "root",
-            "--no-mariadb-socket",
+            "--mariadb-user-host-login-scope=%",
         ]
 
     def _site_env(self, ctx: InstallContext) -> dict:
         env = self._local_bin_env()
         env["MYSQL_PWD"] = ctx.mariadb_root_password
-        env["FRAPPE_ADMIN_PASSWORD"] = ctx.admin_password
         return env
 
     def _log_command(self, ctx: InstallContext) -> None:
@@ -59,40 +51,54 @@ class SiteCreateStep(InstallStep):
             return
 
         env = self._site_env(ctx)
+        # bench prompts for admin password interactively; pipe it via stdin.
+        input_bytes = f"{ctx.admin_password}\n{ctx.admin_password}\n".encode()
 
         if ctx.log_fn:
             self._log_command(ctx)
-            self._popen_with_env(ctx, cmd, cwd=cwd, env=env)
+            self._popen_with_env(ctx, cmd, cwd=cwd, env=env, input_bytes=input_bytes)
             return
 
         try:
             subprocess.run(
                 cmd,
+                input=input_bytes,
                 cwd=cwd,
                 capture_output=True,
-                text=True,
                 check=True,
                 env=env,
             )
         except subprocess.CalledProcessError as e:
-            raise StepError("bench new-site failed", hint=e.stderr) from e
+            raise StepError(
+                "bench new-site failed", hint=e.stderr.decode(errors="replace")
+            ) from e
 
     def _popen_with_env(
-        self, ctx: InstallContext, cmd: list[str], cwd: str, env: dict
+        self,
+        ctx: InstallContext,
+        cmd: list[str],
+        cwd: str,
+        env: dict,
+        input_bytes: bytes | None = None,
     ) -> None:
         """Stream output to the wizard log while passing a custom env.
 
         Mirrors :meth:`InstallStep._popen` but accepts a pre-built environment
-        so we can inject ``MYSQL_PWD`` / ``FRAPPE_ADMIN_PASSWORD`` without
-        leaking them on argv.
+        so we can inject ``MYSQL_PWD`` without leaking it on argv, and
+        optionally pipe ``input_bytes`` to stdin (used to supply the admin
+        password when bench prompts interactively).
         """
         proc = subprocess.Popen(
             cmd,
+            stdin=subprocess.PIPE if input_bytes else None,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,
             env=env,
             cwd=cwd,
         )
+        if input_bytes and proc.stdin:
+            proc.stdin.write(input_bytes)
+            proc.stdin.close()
         captured: list[str] = []
         assert proc.stdout is not None
         for raw in iter(proc.stdout.readline, b""):
