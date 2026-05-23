@@ -544,7 +544,9 @@ class TestBenchInitStep:
             mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
             BenchInitStep().run(ctx)
 
-        assert not partial_bench.exists(), "partial bench dir must be removed before init"
+        assert (
+            not partial_bench.exists()
+        ), "partial bench dir must be removed before init"
         all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
         assert "bench" in all_args and "init" in all_args
 
