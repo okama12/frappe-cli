@@ -527,6 +527,52 @@ class TestBenchInitStep:
         all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
         assert "bench" in all_args and "init" in all_args
 
+    def test_run_removes_partial_bench_before_init(self, tmp_path):
+        """A bench dir that exists without apps/frappe is a partial init from a
+        previous interrupted run — run() must remove it so bench gets a clean slate."""
+        from frappe_cli.install.steps.init_bench import BenchInitStep
+
+        partial_bench = tmp_path / "frappe-bench"
+        partial_bench.mkdir()
+        (partial_bench / "Procfile").write_text("web: bench serve")
+
+        ctx = make_ctx(bench_name="frappe-bench")
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("subprocess.run") as mock_run,
+        ):
+            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            BenchInitStep().run(ctx)
+
+        assert not partial_bench.exists(), "partial bench dir must be removed before init"
+        all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
+        assert "bench" in all_args and "init" in all_args
+
+    def test_run_logs_partial_bench_cleanup(self, tmp_path):
+        """When a partial bench dir is detected and removed, a log message is emitted."""
+        from frappe_cli.install.steps.init_bench import BenchInitStep
+
+        partial_bench = tmp_path / "frappe-bench"
+        partial_bench.mkdir()
+
+        logs: list[str] = []
+        ctx = make_ctx(bench_name="frappe-bench")
+        ctx.log_fn = logs.append
+
+        mock_proc = MagicMock()
+        mock_proc.stdout.readline.return_value = b""
+        mock_proc.returncode = 0
+
+        with (
+            patch("pathlib.Path.home", return_value=tmp_path),
+            patch("subprocess.Popen", return_value=mock_proc),
+        ):
+            BenchInitStep().run(ctx)
+
+        assert any(
+            "frappe-bench" in line and "partial" in line.lower() for line in logs
+        ), f"expected a partial-bench cleanup log message, got: {logs}"
+
 
 # ── SiteCreateStep ────────────────────────────────────────────────────────────
 

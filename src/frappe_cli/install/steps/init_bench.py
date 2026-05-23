@@ -20,6 +20,16 @@ class BenchInitStep(InstallStep):
         return already
 
     def run(self, ctx) -> None:
+        # A bench dir that exists without apps/frappe is a partial init from a
+        # previously interrupted run. Remove it so bench starts from a clean state
+        # rather than trying to reconcile stale app state.
+        if ctx.bench_path.exists() and not (ctx.bench_path / "apps" / "frappe").exists():
+            if ctx.log_fn:
+                ctx.log_fn(
+                    f"Removing partial bench at {ctx.bench_path} before re-initialising"
+                )
+            shutil.rmtree(ctx.bench_path)
+
         self._run(
             ctx,
             [
