@@ -2,7 +2,7 @@
 
 Commands
 --------
-use <site>   Set the active site for the current bench (writes .fp.yaml).
+use [site]   Interactive picker, or set exact site (writes .fp.yaml).
 context      Show the current bench root and active site.
 sites        List all sites in the current bench.
 
@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -34,6 +35,7 @@ from frappe_cli.dev.context import (
     site_exists,
     write_active_site,
 )
+from frappe_cli.dev.site_picker import pick_site_interactive
 
 _console = Console()
 
@@ -80,6 +82,11 @@ def _require_site(bench_root: Path) -> str:
     return site
 
 
+def _stdin_isatty() -> bool:
+    """Return True when stdin is a TTY (isolated for tests under CliRunner)."""
+    return sys.stdin.isatty()
+
+
 def _is_git_repo(path: Path) -> bool:
     """Return True when *path* is inside a git work tree."""
     result = subprocess.run(
@@ -103,22 +110,35 @@ def _run_checked(cmd: list[str], *, cwd: Path, label: str) -> None:
 
 
 @click.command("use")
-@click.argument("site")
-def use(site: str) -> None:
+@click.argument("site", required=False)
+def use(site: Optional[str]) -> None:
     """Set the active site for the current bench.
+
+    With no argument, opens an interactive searchable site picker
+    (TTY only). With an argument, sets that exact site name.
 
     Works from any directory inside a bench (bench root, apps/, apps/my_app,
     sites/, etc.).  The chosen site is saved in .fp.yaml at the bench root.
 
     \b
     Examples:
-        fp use test7.rashidiokama.com
+        fp use
         fp use dev.local
     """
     bench_root = _require_bench()
+    available = list_sites(bench_root)
 
-    if not site_exists(bench_root, site):
-        available = list_sites(bench_root)
+    if site is None:
+        if not available:
+            raise click.ClickException(f"No sites found in bench '{bench_root.name}'.")
+        if not _stdin_isatty():
+            raise click.ClickException(
+                "No site argument given and stdin is not interactive.\n"
+                "  Pass an exact site name: fp use <site>\n"
+                "  Or run in a terminal to use the interactive picker."
+            )
+        site = pick_site_interactive(available, active=read_active_site(bench_root))
+    elif not site_exists(bench_root, site):
         hint = (
             ("  Available: " + ", ".join(available))
             if available

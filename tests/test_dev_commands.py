@@ -8,6 +8,7 @@ import subprocess
 from pathlib import Path
 from unittest.mock import patch
 
+import click
 import yaml
 from click.testing import CliRunner
 
@@ -82,6 +83,82 @@ def test_use_works_from_subdirectory(tmp_path):
         assert result.exit_code == 0, result.output
         data = yaml.safe_load((bench / ".fp.yaml").read_text())
         assert data["site"] == "dev.local"
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_use_no_args_interactive_writes_selection(tmp_path):
+    """fp use with no args should call the picker and write .fp.yaml."""
+    bench = _make_bench(tmp_path, sites=["alpha.local", "beta.local"])
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch(
+            "frappe_cli.dev.commands.pick_site_interactive",
+            return_value="beta.local",
+        ) as picker:
+            with patch("frappe_cli.dev.commands._stdin_isatty", return_value=True):
+                result = runner.invoke(cli, ["use"])
+        assert result.exit_code == 0, result.output
+        picker.assert_called_once()
+        data = yaml.safe_load((bench / ".fp.yaml").read_text())
+        assert data["site"] == "beta.local"
+        assert "beta.local" in result.output
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_use_no_args_non_tty_requires_argument(tmp_path):
+    """fp use with no args in non-TTY must fail without opening the picker."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch("frappe_cli.dev.commands.pick_site_interactive") as picker:
+            with patch("frappe_cli.dev.commands._stdin_isatty", return_value=False):
+                result = runner.invoke(cli, ["use"])
+        assert result.exit_code != 0
+        assert picker.call_count == 0
+        assert (
+            "interactive" in result.output.lower()
+            or "argument" in result.output.lower()
+        )
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_use_no_args_empty_bench_errors(tmp_path):
+    """fp use with no sites should error clearly."""
+    bench = _make_bench(tmp_path, sites=[])
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch("frappe_cli.dev.commands._stdin_isatty", return_value=True):
+            result = runner.invoke(cli, ["use"])
+        assert result.exit_code != 0
+        assert "no sites" in result.output.lower()
+    finally:
+        os.chdir(orig_dir)
+
+
+def test_use_no_args_cancel_does_not_write(tmp_path):
+    """Cancelling the picker must not write .fp.yaml."""
+    bench = _make_bench(tmp_path, sites=["dev.local"])
+    runner = CliRunner()
+    orig_dir = os.getcwd()
+    try:
+        os.chdir(bench)
+        with patch(
+            "frappe_cli.dev.commands.pick_site_interactive",
+            side_effect=click.Abort(),
+        ):
+            with patch("frappe_cli.dev.commands._stdin_isatty", return_value=True):
+                result = runner.invoke(cli, ["use"])
+        assert result.exit_code != 0
+        assert not (bench / ".fp.yaml").exists()
     finally:
         os.chdir(orig_dir)
 
