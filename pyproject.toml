@@ -32,6 +32,7 @@ click = "^8.1.7"
 pyyaml = "^6.0.1"
 rich = "^13.7.0"
 types-PyYAML = "^6.0.12.12"
+inquirerpy = ">=0.3.4,<1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.4.0"
