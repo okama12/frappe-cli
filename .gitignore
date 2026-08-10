@@ -87,3 +87,6 @@ docs/
 # Scratch files
 checklist.md
 frappe-installer.log
+
+# Local git worktrees
+.worktrees/
