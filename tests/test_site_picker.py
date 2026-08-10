@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import click
 import pytest
 
 
@@ -24,12 +25,15 @@ def test_pick_site_interactive_returns_selected_value():
     kwargs = fuzzy.call_args.kwargs
     assert kwargs["message"]
     # choices must be non-empty and preserve site values
-    assert len(kwargs["choices"]) == 2
+    choices = kwargs["choices"]
+    assert len(choices) == 2
+    by_value = {choice.value: choice.name for choice in choices}
+    assert by_value["dev.local"].startswith("●")
+    assert by_value["staging.example.com"].startswith("  ")
 
 
 def test_pick_site_interactive_raises_abort_on_keyboard_interrupt():
     from frappe_cli.dev.site_picker import pick_site_interactive
-    import click
 
     mock_prompt = MagicMock()
     mock_prompt.execute.side_effect = KeyboardInterrupt
@@ -41,7 +45,6 @@ def test_pick_site_interactive_raises_abort_on_keyboard_interrupt():
 
 def test_pick_site_interactive_raises_abort_on_none_result():
     from frappe_cli.dev.site_picker import pick_site_interactive
-    import click
 
     mock_prompt = MagicMock()
     mock_prompt.execute.return_value = None
@@ -53,7 +56,6 @@ def test_pick_site_interactive_raises_abort_on_none_result():
 
 def test_pick_site_interactive_rejects_empty_sites():
     from frappe_cli.dev.site_picker import pick_site_interactive
-    import click
 
     with pytest.raises(click.ClickException, match="No sites"):
         pick_site_interactive([], active=None)
