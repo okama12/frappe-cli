@@ -33,7 +33,7 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 ├──────────────────────────────┬──────────────────────────────────────┤
 │   🏗  INSTALLER / OPS        │   ⚡  DAILY DEV WORKFLOW             │
 │                              │                                      │
-│  fp install wizard           │  fp use <site>     ← set context     │
+│  fp install wizard           │  fp use [site]     ← set context     │
 │  fp step <name>              │  fp migrate        ← auto --site     │
 │  fp ssl setup/list           │  fp console                          │
 │  fp service status           │  fp restart                          │
@@ -49,7 +49,7 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 
 - **One-command bootstrap:** `fp install wizard` provisions a fresh Ubuntu VPS end-to-end (MariaDB → Redis → Node → bench → site → ERPNext → nginx → supervisor → SSL).
 - **17 individually runnable steps:** `fp step <name>` lets you re-run, debug, or compose any wizard step on its own (same code path as the wizard).
-- **Context-aware dev workflow:** `fp use mysite.local` remembers your active bench + site — then every `bench` command becomes one word.
+- **Context-aware dev workflow:** `fp use` opens an interactive site picker (or pass an exact name in scripts) — remembers your active bench + site, then every `bench` command becomes one word.
 - **Multi-bench friendly:** works on fresh and non-fresh VPS — auto-detects existing bench installs and directories.
 - **Self-healing:** automatically repairs the supervisor symlink that vanilla `bench setup production` sometimes misses on multi-bench hosts.
 - **Hard verification:** polls `supervisorctl status` for RUNNING and pings bench Redis for PONG before declaring success.
@@ -246,15 +246,21 @@ fp clear-cache
 
 You never "lose" a site — just `use` a different one. The old site is still there.
 
-```
-fp sites
-  ● dev.local          ← active (green dot)
-    staging.example.com
-
-fp use staging.example.com
+```bash
+fp use
+# ↑↓ move · type to filter · Enter select
+#   ● alpha.local
+#     beta.local
+#     staging.example.com
 # ✓ Active site set to staging.example.com
 
 fp migrate            → bench --site staging.example.com migrate
+```
+
+For scripts or non-interactive shells, pass the exact name:
+
+```bash
+fp use staging.example.com
 ```
 
 ### One-command deploy
@@ -315,7 +321,7 @@ The sudoers rule is scoped to **one user + one binary** (`/usr/bin/supervisorctl
 ### All dev commands
 
 ```
-  fp use <site>         Write active site to .fp.yaml
+  fp use [site]         Interactive site picker, or set exact site (.fp.yaml)
   fp context            Show current bench + active site
   fp sites              List all sites (active site marked with ●)
   fp deploy             git pull → migrate → restart
