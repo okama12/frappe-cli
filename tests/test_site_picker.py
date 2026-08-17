@@ -14,7 +14,9 @@ def test_pick_site_interactive_returns_selected_value():
     mock_prompt = MagicMock()
     mock_prompt.execute.return_value = "staging.example.com"
 
-    with patch("frappe_cli.dev.site_picker.inquirer.fuzzy", return_value=mock_prompt) as fuzzy:
+    with patch(
+        "frappe_cli.dev.site_picker.inquirer.fuzzy", return_value=mock_prompt
+    ) as fuzzy:
         result = pick_site_interactive(
             ["dev.local", "staging.example.com"],
             active="dev.local",
