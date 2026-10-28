@@ -8,7 +8,7 @@ def test_frappe_help():
     result = runner.invoke(cli.cli, ["--help"])
     assert result.exit_code == 0
     assert "Frappe CLI" in result.output
-    assert "Commands:" in result.output
+    assert "Daily development:" in result.output
 
 
 def test_site_help():

@@ -54,7 +54,7 @@ class ProductionSetupStep(InstallStep):
 
         # nginx (www-data) must be able to traverse the home directory to serve
         # bench static files. Without o+x, every request returns 403 Forbidden.
-        self._sudo(ctx, ["chmod", "o+x", str(Path.home())])
+        self._sudo(ctx, ["chmod", "o+x", str(ctx.bench_path.parent)])
 
         # Self-heal supervisor: on multi-bench servers `bench setup production`
         # sometimes does NOT add the new bench's supervisor.conf into

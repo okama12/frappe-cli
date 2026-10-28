@@ -24,7 +24,7 @@ def find_bench_root(start: Path) -> Optional[Path]:
     the filesystem root.
     """
     for candidate in [start, *start.parents]:
-        if all((candidate / marker).exists() for marker in BENCH_MARKERS):
+        if all((candidate / marker).is_dir() for marker in BENCH_MARKERS):
             return candidate
     return None
 
@@ -62,3 +62,34 @@ def list_sites(bench_root: Path) -> list[str]:
         for d in sites_dir.iterdir()
         if d.is_dir() and (d / "site_config.json").exists()
     )
+
+
+def discover_benches() -> list[Path]:
+    """Bounded discovery: current bench and immediate home directories."""
+    found = set()
+    current = find_bench_root(Path.cwd())
+    if current:
+        found.add(current.resolve())
+    try:
+        for path in Path.home().iterdir():
+            if all((path / marker).is_dir() for marker in BENCH_MARKERS):
+                found.add(path.resolve())
+    except OSError:
+        pass
+    return sorted(found)
+
+
+def frappe_branch(bench: Path) -> str | None:
+    """Read a local Git HEAD without invoking git or contacting a remote."""
+    metadata = bench / "apps" / "frappe" / ".git"
+    try:
+        if metadata.is_file():
+            pointer = metadata.read_text().strip()
+            if not pointer.startswith("gitdir: "):
+                return None
+            metadata = (metadata.parent / pointer[8:]).resolve()
+        head = (metadata / "HEAD").read_text().strip()
+    except OSError:
+        return None
+    prefix = "ref: refs/heads/"
+    return head[len(prefix) :] if head.startswith(prefix) else None

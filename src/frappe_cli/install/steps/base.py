@@ -2,6 +2,7 @@ import os
 import subprocess
 import tempfile
 from abc import ABC, abstractmethod
+from collections import deque
 from pathlib import Path
 
 from frappe_cli.install.context import InstallContext
@@ -12,6 +13,71 @@ class StepError(Exception):
         self.message = message
         self.hint = hint
         super().__init__(message)
+
+
+def sudo_prefix(password):
+    """Authenticate separately so cached/NOPASSWD sudo cannot consume payloads."""
+    if os.geteuid() == 0:
+        return []
+    try:
+        subprocess.run(
+            ["sudo", "-S", "-p", "", "-v"],
+            input=(password + "\n").encode(),
+            capture_output=True,
+            check=True,
+            timeout=30,
+        )
+    except subprocess.CalledProcessError as exc:
+        raise StepError(
+            "Sudo authentication failed.",
+            hint="Check your password and sudo permissions, then resume.",
+        ) from exc
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise StepError(
+            "Sudo authentication could not complete.",
+            hint="Check that sudo is installed and available, then retry.",
+        ) from exc
+    return ["sudo", "-n"]
+
+
+def privileged_command(password, command):
+    prefix = sudo_prefix(password)
+    if command[0] in {"apt", "apt-get"}:
+        return [*prefix, "env", "DEBIAN_FRONTEND=noninteractive", *command]
+    return [*prefix, *command]
+
+
+def consume_process(ctx, proc, cmd, input_bytes=None):
+    """Stream a bounded log tail and stop the child when the operator cancels."""
+    captured: deque[str] = deque(maxlen=100)
+    try:
+        if input_bytes:
+            assert proc.stdin is not None
+            proc.stdin.write(input_bytes)
+            proc.stdin.close()
+        assert proc.stdout is not None
+        for raw in iter(proc.stdout.readline, b""):
+            line = raw.decode(errors="replace").rstrip()
+            captured.append(line)
+            if ctx.log_fn and line:
+                low = line.lower()
+                if "[sudo]" not in low and not low.startswith("password"):
+                    ctx.log_fn(line)
+        proc.wait()
+    except BaseException:
+        if proc.poll() is None:
+            proc.terminate()
+            try:
+                proc.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait(timeout=5)
+        raise
+    if proc.returncode != 0:
+        raise StepError(
+            f"Command failed: {' '.join(cmd[:3])}", hint="\n".join(list(captured)[-10:])
+        )
+    return subprocess.CompletedProcess(cmd, proc.returncode, b"", b"")
 
 
 class InstallStep(ABC):
@@ -60,30 +126,7 @@ class InstallStep(ABC):
             env=self._local_bin_env(),
             cwd=cwd,
         )
-        if input_bytes:
-            assert proc.stdin is not None
-            proc.stdin.write(input_bytes)
-            proc.stdin.close()
-
-        captured: list[str] = []
-        assert proc.stdout is not None
-        for raw in iter(proc.stdout.readline, b""):
-            line = raw.decode(errors="replace").rstrip()
-            captured.append(line)
-            if ctx.log_fn and line:
-                # Filter sudo password prompts
-                low = line.lower()
-                if "[sudo]" not in low and not low.startswith("password"):
-                    ctx.log_fn(line)
-
-        proc.wait()
-        if proc.returncode != 0:
-            hint = "\n".join(captured[-10:])
-            raise StepError(
-                f"Command failed: {' '.join(cmd[:3])}",
-                hint=hint,
-            )
-        return subprocess.CompletedProcess(cmd, proc.returncode, b"", b"")
+        return consume_process(ctx, proc, cmd, input_bytes)
 
     def _sudo(
         self, ctx: InstallContext, cmd: list[str], cwd: str | None = None
@@ -92,15 +135,13 @@ class InstallStep(ABC):
             if ctx.log_fn:
                 ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}")
             return subprocess.CompletedProcess(cmd, 0, b"", b"")
-        input_bytes = (ctx.sudo_password + "\n").encode()
-        full_cmd = ["sudo", "-S"] + cmd
+        full_cmd = privileged_command(ctx.sudo_password, cmd)
         if ctx.log_fn:
             ctx.log_fn(f"$ {' '.join(cmd)}")
-            return self._popen(ctx, full_cmd, input_bytes=input_bytes, cwd=cwd)
+            return self._popen(ctx, full_cmd, cwd=cwd)
         try:
             return subprocess.run(
                 full_cmd,
-                input=input_bytes,
                 capture_output=True,
                 check=True,
                 cwd=cwd,
@@ -118,7 +159,7 @@ class InstallStep(ABC):
         stdin_after_password: bytes,
         cwd: str | None = None,
     ) -> subprocess.CompletedProcess:
-        """Like :meth:`_sudo` but pipes additional bytes to the command's stdin.
+        """Like :meth:`_sudo` but pipes bytes exclusively to the command's stdin.
 
         Unlike :meth:`_sudo_with_stdin` (which streams output through Popen),
         this captures output. It is used by ``MariaDBSecureStep`` so the SQL
@@ -130,14 +171,13 @@ class InstallStep(ABC):
             if ctx.log_fn:
                 ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}  < (stdin)")
             return subprocess.CompletedProcess(cmd, 0, b"", b"")
-        full_cmd = ["sudo", "-S"] + cmd
-        input_bytes = (ctx.sudo_password + "\n").encode() + stdin_after_password
+        full_cmd = privileged_command(ctx.sudo_password, cmd)
         if ctx.log_fn:
             ctx.log_fn(f"$ {' '.join(cmd)}")
         try:
             return subprocess.run(
                 full_cmd,
-                input=input_bytes,
+                input=stdin_after_password,
                 capture_output=True,
                 check=True,
                 cwd=cwd,
@@ -155,21 +195,20 @@ class InstallStep(ABC):
         stdin: bytes,
         cwd: str | None = None,
     ) -> subprocess.CompletedProcess:
-        """Run a sudo command and feed extra bytes on stdin AFTER the sudo password.
+        """Authenticate sudo, then send scripted answers directly to the child.
 
         Used for commands like `bench setup lets-encrypt <site>` that prompt
         interactively (e.g. "stop nginx? [y/N]", "overwrite nginx.conf? [y/N]").
-        We send the sudo password first, then the scripted answers.
+        Authentication uses a separate process so cached sudo never shifts answers.
         """
         if ctx.dry_run:
             if ctx.log_fn:
                 ctx.log_fn(f"[dry-run] $ sudo {' '.join(cmd)}")
             return subprocess.CompletedProcess(cmd, 0, b"", b"")
-        full_cmd = ["sudo", "-S"] + cmd
-        input_bytes = (ctx.sudo_password + "\n").encode() + stdin
+        full_cmd = privileged_command(ctx.sudo_password, cmd)
         if ctx.log_fn:
             ctx.log_fn(f"$ {' '.join(cmd)}")
-        return self._popen(ctx, full_cmd, input_bytes=input_bytes, cwd=cwd)
+        return self._popen(ctx, full_cmd, input_bytes=stdin, cwd=cwd)
 
     def _sudo_write(self, ctx: InstallContext, content: str, path: str) -> None:
         """Write content to a privileged path via a temp file + sudo cp."""
@@ -181,15 +220,14 @@ class InstallStep(ABC):
             tmp.write(content)
             tmp_name = tmp.name
         try:
+            prefix = sudo_prefix(ctx.sudo_password)
             subprocess.run(
-                ["sudo", "-S", "cp", tmp_name, path],
-                input=(ctx.sudo_password + "\n").encode(),
+                [*prefix, "cp", tmp_name, path],
                 capture_output=True,
                 check=True,
             )
             subprocess.run(
-                ["sudo", "-S", "chmod", "644", path],
-                input=(ctx.sudo_password + "\n").encode(),
+                [*prefix, "chmod", "644", path],
                 capture_output=True,
                 check=True,
             )

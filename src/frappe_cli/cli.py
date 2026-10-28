@@ -2,6 +2,7 @@ import importlib.metadata
 
 import click
 
+from frappe_cli.actions import DIRECT_ACTIONS
 from frappe_cli.app import app
 from frappe_cli.backup import backup
 from frappe_cli.config import config
@@ -14,31 +15,90 @@ from frappe_cli.monitor import monitor
 from frappe_cli.optimize import optimize
 from frappe_cli.rollback import rollback
 from frappe_cli.service import service
+from frappe_cli.setup import inspect_environment, setup
 from frappe_cli.site import site
 from frappe_cli.ssl import ssl
 from frappe_cli.step import step
 
 __version__ = importlib.metadata.version("frappe-cli")
 
-# Short aliases for daily dev passthroughs (same behavior as the full names).
-# Not documented in README — optional ergonomics; full commands remain canonical.
-DEV_COMMAND_ALIASES: dict[str, str] = {
-    "r": "restart",
-    "m": "migrate",
-    "c": "console",
-    "db": "mariadb",
-}
-
 
 class FrappeCliGroup(click.Group):
-    """Root Click group that resolves single-letter dev shortcuts."""
+    """Group the public commands by the work users want to do."""
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
-        cmd_name = DEV_COMMAND_ALIASES.get(cmd_name, cmd_name)
-        return super().get_command(ctx, cmd_name)
+    def format_commands(self, ctx, formatter):
+        sections = {
+            "Daily development": {
+                "use",
+                "sites",
+                "context",
+                "r",
+                "m",
+                "c",
+                "db",
+                "build",
+                "watch",
+                "start",
+                "get",
+                "add",
+                "apps",
+                "cc",
+                "backup",
+                "restore",
+                "execute",
+                "test",
+                "browse",
+                "deploy",
+            },
+            "Setup and server": {
+                "setup",
+                "inspect",
+                "init",
+                "new",
+                "prod",
+                "reload",
+                "ssl",
+                "os-update",
+                "deps",
+                "uv",
+                "node",
+                "database",
+                "db-secure",
+                "redis",
+                "pdf",
+                "bench",
+                "dns",
+                "sudo",
+            },
+        }
+        remaining = set(self.list_commands(ctx))
+        for title, names in [
+            *sections.items(),
+            (
+                "Other commands (existing syntax supported)",
+                remaining - set().union(*sections.values()),
+            ),
+        ]:
+            rows = []
+            for name in sorted(names & remaining):
+                command = self.get_command(ctx, name)
+                if command and not command.hidden:
+                    rows.append(
+                        (
+                            name,
+                            command.get_short_help_str(
+                                limit=max(20, formatter.width - 24)
+                            ),
+                        )
+                    )
+            if rows:
+                with formatter.section(title):
+                    formatter.write_dl(rows)
+            remaining -= names
 
 
-@click.group(cls=FrappeCliGroup)
+@click.group(cls=FrappeCliGroup, invoke_without_command=True, no_args_is_help=False)
+@click.version_option(version=__version__, prog_name="Frappe CLI")
 @click.option("--config", type=click.Path(exists=True), help="Path to YAML config file")
 @click.pass_context
 def cli(ctx, config):
@@ -49,6 +109,8 @@ def cli(ctx, config):
     contextual commands for both production installs and daily development.
     """
     ctx.ensure_object(dict)
+    if ctx.invoked_subcommand is None:
+        click.echo(ctx.get_help())
     # Config loading is currently not used
     # from frappe_cli.config import load_config
     # ctx.obj['CONFIG'] = load_config(config)
@@ -192,6 +254,10 @@ for _dev_cmd in ALL_DEV_COMMANDS:
     cli.add_command(_dev_cmd)
 
 cli.add_command(sudo_group)
+for _action in DIRECT_ACTIONS:
+    cli.add_command(_action)
+cli.add_command(setup)
+cli.add_command(inspect_environment)
 
 if __name__ == "__main__":
     cli(obj={})

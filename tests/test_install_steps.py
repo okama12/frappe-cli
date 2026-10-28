@@ -527,9 +527,8 @@ class TestBenchInitStep:
         all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
         assert "bench" in all_args and "init" in all_args
 
-    def test_run_removes_partial_bench_before_init(self, tmp_path):
-        """A bench dir that exists without apps/frappe is a partial init from a
-        previous interrupted run — run() must remove it so bench gets a clean slate."""
+    def test_run_preserves_partial_bench_before_init(self, tmp_path):
+        """Archive interrupted files before starting a clean initialization."""
         from frappe_cli.install.steps.init_bench import BenchInitStep
 
         partial_bench = tmp_path / "frappe-bench"
@@ -546,7 +545,10 @@ class TestBenchInitStep:
 
         assert (
             not partial_bench.exists()
-        ), "partial bench dir must be removed before init"
+        ), "partial bench dir is moved aside before init"
+        preserved = list(tmp_path.glob("frappe-bench.partial-*"))
+        assert len(preserved) == 1
+        assert (preserved[0] / "Procfile").read_text() == "web: bench serve"
         all_args = " ".join(str(a) for c in mock_run.call_args_list for a in c.args[0])
         assert "bench" in all_args and "init" in all_args
 
@@ -774,7 +776,10 @@ class TestSSLSetupStep:
         (cert_dir / "fullchain.pem").write_text("cert")
         step = SSLSetupStep()
         with patch.object(step, "_cert_path", return_value=cert_dir / "fullchain.pem"):
-            assert step.check(make_ctx()) is True
+            with patch(
+                "frappe_cli.ssl.secure.certificate_valid", return_value=True
+            ), patch("frappe_cli.ssl.secure.verify_https"):
+                assert step.check(make_ctx()) is True
 
     def test_check_false_when_permission_error_and_sudo_test_fails(self):
         """Multi-bench server: /etc/letsencrypt/live/ is 700 root-owned, so
@@ -790,6 +795,8 @@ class TestSSLSetupStep:
                 step, "_cert_path", side_effect=PermissionError("denied")
             ) as _cert,
             patch("subprocess.run") as mock_run,
+            patch("frappe_cli.ssl.secure.certificate_valid", return_value=True),
+            patch("frappe_cli.ssl.secure.verify_https"),
         ):
             # _cert_path is called inside check(); make it raise once via the
             # `cert_path.exists()` call by returning a path whose .exists()
@@ -817,29 +824,20 @@ class TestSSLSetupStep:
         with (
             patch.object(step, "_cert_path", return_value=fake_cert),
             patch("subprocess.run") as mock_run,
+            patch("frappe_cli.ssl.secure.certificate_valid", return_value=True),
+            patch("frappe_cli.ssl.secure.verify_https"),
         ):
             mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
             assert step.check(make_ctx()) is True
 
-    def test_run_calls_bench_lets_encrypt(self):
+    def test_run_uses_shared_https_operation(self):
         from frappe_cli.install.steps.ssl import SSLSetupStep
 
         step = SSLSetupStep()
-        with (
-            patch("subprocess.run") as mock_run,
-            patch.object(step, "_sudo_with_stdin") as mock_sudo_stdin,
-        ):
-            # `which certbot` returns 0 -> skip apt-get install
-            mock_run.return_value = MagicMock(returncode=0, stdout=b"", stderr=b"")
+        with (patch("frappe_cli.ssl.secure.configure_https") as configure,):
             step.run(make_ctx())
-
-        assert mock_sudo_stdin.called
-        invoked_cmd = mock_sudo_stdin.call_args.args[1]
-        joined = " ".join(invoked_cmd)
-        assert "setup" in joined and "lets-encrypt" in joined
-        assert "mysite.com" in joined
-        # Two interactive prompts are answered "y"
-        assert mock_sudo_stdin.call_args.kwargs.get("stdin") == b"y\ny\n"
+        assert configure.call_args.args == ("mysite.com",)
+        assert configure.call_args.kwargs["sudo_password"] == "secret"
 
 
 # ── DnsMultitenantStep ────────────────────────────────────────────────────────

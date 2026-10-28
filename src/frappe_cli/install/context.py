@@ -21,6 +21,9 @@ class InstallContext:
     debug: bool = False
     skip_ssl: bool = False
     enable_passwordless_restart: bool = False
+    bench_parent: str = ""
+    selected_steps: list[str] = field(default_factory=list)
+    workflow: str = "production"
     log_fn: Optional[Callable[[str], None]] = field(default=None, repr=False)
 
     @property
@@ -31,11 +34,6 @@ class InstallContext:
 
     @property
     def bench_path(self) -> Path:
-        """Return a validated bench path that is guaranteed to live under ``$HOME``.
-
-        Raises :class:`ValidationError` if ``bench_name`` is unsafe (absolute
-        path, traversal, or contains characters that could break shell/path
-        operations). Every step that touches the filesystem uses this property,
-        so validation cannot be bypassed.
-        """
-        return safe_bench_path(self.bench_name)
+        """Resolve a validated name inside the explicitly selected parent."""
+        parent = Path(self.bench_parent).expanduser() if self.bench_parent else None
+        return safe_bench_path(self.bench_name, home=parent)

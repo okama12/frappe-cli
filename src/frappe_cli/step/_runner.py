@@ -60,6 +60,7 @@ def _detect_ubuntu_version() -> str:
 def build_context(
     *,
     bench_name: str = "",
+    bench_parent: str = "",
     site_name: str = "",
     frappe_branch: str = "version-15",
     app_url: str = "",
@@ -105,6 +106,7 @@ def build_context(
 
     return InstallContext(
         bench_name=bench_name,
+        bench_parent=bench_parent,
         site_name=site_name,
         frappe_branch=frappe_branch,
         app_url=app_url,

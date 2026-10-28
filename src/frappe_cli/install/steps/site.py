@@ -2,7 +2,7 @@ import shutil
 import subprocess
 
 from ..context import InstallContext
-from .base import InstallStep, StepError
+from .base import InstallStep, StepError, consume_process
 
 
 class SiteCreateStep(InstallStep):
@@ -50,6 +50,13 @@ class SiteCreateStep(InstallStep):
             if ctx.log_fn:
                 ctx.log_fn(f"[dry-run] $ bench new-site {ctx.site_name}")
             return
+
+        existing = ctx.bench_path / "sites" / ctx.site_name
+        if existing.exists() and not (existing / "site_config.json").is_file():
+            raise StepError(
+                "The site directory already exists but is incomplete.",
+                hint=f"Existing files are preserved at {existing}. Inspect them before choosing a new site name or restoring this site.",
+            )
 
         env = self._site_env(ctx)
         # bench prompts: (1) MySQL root password, (2) admin password, (3) re-enter admin.
@@ -104,24 +111,7 @@ class SiteCreateStep(InstallStep):
             cwd=cwd,
             start_new_session=True,
         )
-        if input_bytes and proc.stdin:
-            proc.stdin.write(input_bytes)
-            proc.stdin.close()
-        captured: list[str] = []
-        assert proc.stdout is not None
-        for raw in iter(proc.stdout.readline, b""):
-            line = raw.decode(errors="replace").rstrip()
-            captured.append(line)
-            if ctx.log_fn and line:
-                low = line.lower()
-                if "[sudo]" not in low and not low.startswith("password"):
-                    ctx.log_fn(line)
-        proc.wait()
-        if proc.returncode != 0:
-            raise StepError(
-                "bench new-site failed",
-                hint="\n".join(captured[-10:]),
-            )
+        consume_process(ctx, proc, cmd, input_bytes)
 
     def rollback(self, ctx) -> None:
         site_path = ctx.bench_path / "sites" / ctx.site_name

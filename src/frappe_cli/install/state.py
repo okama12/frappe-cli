@@ -16,6 +16,10 @@ class InstallState:
     ssl_email: str = ""
     ubuntu_version: str = ""
     enable_passwordless_restart: bool = False
+    bench_parent: str = ""
+    selected_steps: list[str] = field(default_factory=list)
+    workflow: str = "production"
+    skip_ssl: bool = False
     completed_steps: list[str] = field(default_factory=list)
 
 

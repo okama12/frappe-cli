@@ -1,5 +1,4 @@
-import shutil
-from pathlib import Path
+from uuid import uuid4
 
 from .base import InstallStep
 
@@ -20,18 +19,20 @@ class BenchInitStep(InstallStep):
         return already
 
     def run(self, ctx) -> None:
-        # A bench dir that exists without apps/frappe is a partial init from a
-        # previously interrupted run. Remove it so bench starts from a clean state
-        # rather than trying to reconcile stale app state.
+        # Preserve interrupted runs; an unrelated directory is never disposable.
         if (
-            ctx.bench_path.exists()
+            not ctx.dry_run
+            and ctx.bench_path.exists()
             and not (ctx.bench_path / "apps" / "frappe").exists()
         ):
+            backup = ctx.bench_path.with_name(
+                f"{ctx.bench_name}.partial-{uuid4().hex[:8]}"
+            )
+            ctx.bench_path.rename(backup)
             if ctx.log_fn:
                 ctx.log_fn(
-                    f"Removing partial bench at {ctx.bench_path} before re-initialising"
+                    f"Preserved partial bench at {backup} before re-initialising"
                 )
-            shutil.rmtree(ctx.bench_path)
 
         self._run(
             ctx,
@@ -42,11 +43,11 @@ class BenchInitStep(InstallStep):
                 "--frappe-branch",
                 ctx.frappe_branch,
             ],
-            cwd=str(Path.home()),
+            cwd=str(ctx.bench_path.parent),
         )
 
     def rollback(self, ctx) -> None:
-        if ctx.bench_path.exists():
-            if ctx.log_fn:
-                ctx.log_fn(f"Rolling back: removing {ctx.bench_path}")
-            shutil.rmtree(ctx.bench_path, ignore_errors=True)
+        if ctx.log_fn:
+            ctx.log_fn(
+                f"Preserving installation files at {ctx.bench_path} for recovery"
+            )

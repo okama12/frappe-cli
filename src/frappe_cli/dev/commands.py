@@ -20,7 +20,6 @@ from __future__ import annotations
 
 import os
 import subprocess
-import sys
 from pathlib import Path
 from typing import Optional
 
@@ -36,6 +35,8 @@ from frappe_cli.dev.context import (
     write_active_site,
 )
 from frappe_cli.dev.site_picker import pick_site_interactive
+from frappe_cli.ui import terminal
+from frappe_cli.utils.targets import bench_target, print_target, site_target
 
 _console = Console()
 
@@ -66,7 +67,7 @@ def _require_bench() -> Path:
         raise click.ClickException(
             "Not inside a Frappe bench directory.\n"
             "  cd into your bench (or any subdirectory) and try again.\n"
-            "  Tip: use 'fp install wizard' to create a new bench."
+            "  Tip: use 'fp setup' to create a new bench."
         )
     return root
 
@@ -79,12 +80,16 @@ def _require_site(bench_root: Path) -> str:
             f"No active site set for bench '{bench_root.name}'.\n"
             "  Run: fp use <site-name>"
         )
+    if not site_exists(bench_root, site):
+        raise click.ClickException(
+            f"Selected site '{site}' no longer exists. Run fp use."
+        )
     return site
 
 
 def _stdin_isatty() -> bool:
     """Return True when stdin is a TTY (isolated for tests under CliRunner)."""
-    return sys.stdin.isatty()
+    return terminal.interactive()
 
 
 def _is_git_repo(path: Path) -> bool:
@@ -259,30 +264,57 @@ def _make_passthrough(
     *,
     needs_site: Optional[bool] = None,
     help_text: str = "",
+    bench_command: Optional[str] = None,
 ) -> click.Command:
     """Return a Click command that passes through to ``bench <name>``.
 
     If *needs_site* is ``None`` the function consults ``SITE_REQUIRED``.
     Extra arguments/options are forwarded verbatim.
     """
-    site_scoped: bool = (name in SITE_REQUIRED) if needs_site is None else needs_site
+    operation = bench_command or name
+    site_scoped: bool = (
+        (operation in SITE_REQUIRED) if needs_site is None else needs_site
+    )
 
     @click.command(
         name,
         help=help_text or f"Run 'bench {name}' in the current bench.",
         context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
     )
+    @click.option(
+        "--bench", default=None, help="Bench path; detected from the current directory."
+    )
+    @click.option(
+        "--site", "-s", default=None, help="Site override for this invocation."
+    )
+    @click.option(
+        "--dry-run", is_flag=True, help="Print the command without executing it."
+    )
     @click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
-    def _cmd(extra_args: tuple[str, ...]) -> None:
-        bench_root = _require_bench()
+    def _cmd(extra_args: tuple[str, ...], bench, site, dry_run) -> None:
+        bench_root = bench_target(bench) if bench else _require_bench()
 
         cmd: list[str] = ["bench"]
 
         if site_scoped:
-            site = _require_site(bench_root)
-            cmd += ["--site", site]
+            selected = (
+                site_target(bench_root, site)
+                if site or terminal.interactive()
+                else _require_site(bench_root)
+            )
+            cmd += ["--site", selected]
+        elif site:
+            raise click.UsageError(
+                f"{name} affects the bench and does not accept --site."
+            )
 
-        cmd += [name, *extra_args]
+        cmd += [operation, *extra_args]
+        print_target(_console, bench_root, selected if site_scoped else "")
+        if dry_run:
+            import shlex
+
+            _console.print(shlex.join(cmd), markup=False)
+            return
 
         result = subprocess.run(cmd, cwd=str(bench_root))
         raise SystemExit(result.returncode)
@@ -364,4 +396,37 @@ ALL_DEV_COMMANDS: list[click.Command] = [
     list_apps_cmd,
     clear_cache,
     bench_mariadb,
+    _make_passthrough(
+        "r", bench_command="restart", help_text="Restart bench processes."
+    ),
+    _make_passthrough(
+        "m", bench_command="migrate", help_text="Migrate the selected site."
+    ),
+    _make_passthrough(
+        "c",
+        bench_command="console",
+        help_text="Open the selected site's Python console.",
+    ),
+    _make_passthrough(
+        "db",
+        bench_command="mariadb",
+        help_text="Open the selected site's database console.",
+    ),
+    _make_passthrough(
+        "apps",
+        bench_command="list-apps",
+        help_text="List apps installed on the selected site.",
+    ),
+    _make_passthrough(
+        "cc", bench_command="clear-cache", help_text="Clear the selected site's cache."
+    ),
+    _make_passthrough("restore", help_text="Restore a backup to the selected site."),
+    _make_passthrough("execute", help_text="Execute a method on the selected site."),
+    _make_passthrough(
+        "test",
+        bench_command="run-tests",
+        needs_site=True,
+        help_text="Run tests on the selected site.",
+    ),
+    _make_passthrough("browse", help_text="Open the selected site in a browser."),
 ]

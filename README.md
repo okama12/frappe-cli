@@ -25,6 +25,51 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 
 ---
 
+## Guided setup
+
+```bash
+fp                            # show command help
+fp setup                      # searchable task menu
+fp setup --task production    # complete production deployment
+fp setup --task development   # prepare a development bench and site
+fp setup --resume             # resume the saved plan
+```
+
+The menu also offers site creation, app installation, general HTTPS, inspection,
+and custom component selection. Prompts support typing to search, arrow keys,
+Enter, and Ctrl+C. Multi-selection uses Tab. Review the detected owner, bench
+location, domain, and component plan before applying it; choose **Back: edit
+configuration** to revise inputs. Passwords are collected after plan review and
+are never saved.
+
+For a new bench, browse the server's folders with the arrow keys and Enter,
+or choose **Enter a path** for Tab completion. Select **Use this directory**
+to choose the parent folder, then enter the bench name. The wizard checks write
+access and shows the full destination before installation.
+
+```bash
+fp setup --task production --dry-run
+fp setup --task custom --components redis,nodejs --dry-run
+fp inspect
+```
+
+Custom plans include required dependencies in execution order. OS upgrades and
+passwordless sudo are optional, rather than implicit prerequisites. In redirected
+input, pass `--task` and `--components` for custom plans; prompts use plain text
+and execution emits a stable line-by-line log without animation.
+
+Preview mode executes no installation commands and does not overwrite saved
+progress. Failures preserve progress from the first step, explain known problems,
+and offer retry/details/exit in a terminal. Temporary package/network failures
+receive bounded retries for eligible operations. Resume rechecks observable saved
+resources and stops if a previously created bench or site has disappeared.
+Interrupted bench directories are archived before a new initialization; failed
+wizard runs preserve files for inspection.
+
+Development setup prepares a bench and site and optionally downloads an app.
+Run `fp start` from that bench, then `fp add APP` in another terminal to install
+the downloaded app. It does not configure production services or HTTPS.
+
 ## Two tools in one
 
 ```
@@ -33,7 +78,7 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 ├──────────────────────────────┬──────────────────────────────────────┤
 │   🏗  INSTALLER / OPS        │   ⚡  DAILY DEV WORKFLOW             │
 │                              │                                      │
-│  fp install wizard           │  fp use [site]     ← set context     │
+│  fp setup           │  fp use [site]     ← set context     │
 │  fp step <name>              │  fp migrate        ← auto --site     │
 │  fp ssl setup/list           │  fp console                          │
 │  fp service status           │  fp restart                          │
@@ -47,13 +92,13 @@ Built with Python + [Click](https://click.palletsprojects.com/) + [Rich](https:/
 
 ## Highlights
 
-- **One-command bootstrap:** `fp install wizard` provisions a fresh Ubuntu VPS end-to-end (MariaDB → Redis → Node → bench → site → ERPNext → nginx → supervisor → SSL).
-- **17 individually runnable steps:** `fp step <name>` lets you re-run, debug, or compose any wizard step on its own (same code path as the wizard).
+- **One-command bootstrap:** `fp setup` provisions a fresh Ubuntu VPS end-to-end (MariaDB → Redis → Node → bench → site → ERPNext → nginx → supervisor → SSL).
+- **Direct setup commands:** `fp deps`, `fp node`, `fp init`, `fp new`, `fp prod`, and `fp ssl` share operations with the wizard.
 - **Context-aware dev workflow:** `fp use` opens an interactive site picker (or pass an exact name in scripts) — remembers your active bench + site, then every `bench` command becomes one word.
 - **Multi-bench friendly:** works on fresh and non-fresh VPS — auto-detects existing bench installs and directories.
 - **Self-healing:** automatically repairs the supervisor symlink that vanilla `bench setup production` sometimes misses on multi-bench hosts.
 - **Hard verification:** polls `supervisorctl status` for RUNNING and pings bench Redis for PONG before declaring success.
-- **Resumable:** the wizard saves progress; if a step fails you can fix and `fp install wizard --resume`.
+- **Resumable:** the wizard saves progress; if a step fails you can fix and `fp setup --resume`.
 - **Operator-friendly utilities:** `fp ssl list/setup`, `fp service status`, `fp backup setup`, `fp firewall setup`, and more.
 
 ---
@@ -125,7 +170,7 @@ Fresh Ubuntu VPS
   uv tool install frappe-cli
       │
       ▼
-  fp install wizard          ← interactive prompts, ~30-60 min
+  fp setup          ← interactive prompts, ~30-60 min
       │
       ├─ system-update
       ├─ system-deps
@@ -151,7 +196,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 uv tool install frappe-cli
 
 # 2. Run the interactive wizard (≈30–60 min depending on the host)
-fp install wizard
+fp setup
 ```
 
 You'll be prompted for:
@@ -167,7 +212,7 @@ You'll be prompted for:
 | Site Administrator password | (new password) |
 | Let's Encrypt email | `you@example.com` |
 | Sudo password | (your login password) |
-| Allow passwordless `fp restart`? | `Y` recommended |
+| Allow passwordless `fp r`? | Optional; disabled by default |
 
 #### App branch auto-detection
 
@@ -192,7 +237,7 @@ The wizard asks for this password **twice**. Unlike the site admin password (whi
 If a step fails, fix the issue and resume from where it stopped:
 
 ```bash
-fp install wizard --resume
+fp setup --resume
 ```
 
 When it's done:
@@ -218,7 +263,7 @@ This is where `fp` really shines. Instead of typing `bench --site <long.site.nam
   └── .fp.yaml                   ← fp writes: site: dev.local
 ```
 
-### Step 1 — set your active site (once per session)
+### Step 1 — select your active site (saved per bench)
 
 Works from any directory inside the bench — bench root, `apps/`, `apps/my_app/`, etc.
 
@@ -237,9 +282,9 @@ bench --site dev.local console
 bench --site dev.local clear-cache
 
 # With fp:
-fp migrate
-fp console
-fp clear-cache
+fp m
+fp c
+fp cc
 ```
 
 ### Switching between sites
@@ -254,7 +299,7 @@ fp use
 #     staging.example.com
 # ✓ Active site set to staging.example.com
 
-fp migrate            → bench --site staging.example.com migrate
+fp m                  → bench --site staging.example.com migrate
 ```
 
 For scripts or non-interactive shells, pass the exact name:
@@ -289,7 +334,7 @@ On production benches `bench restart` (and therefore `fp restart` / `fp deploy`)
 
 Enable passwordless restart in two ways:
 
-**Option A — during `fp install wizard`** (recommended for new servers):
+**Option A — during `fp setup`** (recommended for new servers):
 
 The wizard asks you at setup time:
 
@@ -318,37 +363,42 @@ After enabling, `fp deploy` runs completely without password prompts:
 
 The sudoers rule is scoped to **one user + one binary** (`/usr/bin/supervisorctl`) — minimal privilege. The file is tagged so `fp sudo disable-restart` never removes a hand-crafted rule.
 
-### All dev commands
+### Daily commands
 
-```
-  fp use [site]         Interactive site picker, or set exact site (.fp.yaml)
-  fp context            Show current bench + active site
-  fp sites              List all sites (active site marked with ●)
-  fp deploy             git pull → migrate → restart
+| Command | Action |
+|---|---|
+| `fp use [SITE]` | Search/select a site, or save an exact name |
+| `fp m` | Migrate the selected site |
+| `fp r` | Restart bench processes |
+| `fp c` / `fp db` | Python / database console |
+| `fp get APP` | Download an app; detect the existing Frappe branch |
+| `fp add APP` | Install an available app on the selected site |
+| `fp apps` | List installed apps |
+| `fp cc` | Clear cache |
+| `fp backup [--with-files]` | Back up the selected site |
+| `fp restore FILE` | Restore a backup to the selected site |
+| `fp execute METHOD` | Execute a site method |
+| `fp test --app APP` | Run app tests on the selected site |
+| `fp build` / `fp watch` / `fp start` | Build assets / watch changes / start development processes |
+| `fp deploy` | Pull the current app repository, migrate the selected site, restart |
 
-  ── site-scoped (auto-injects --site) ─────────────────────────────
-  fp migrate            Sync schema, run patches, rebuild assets
-  fp console            IPython console for the active site
-  fp install-app <app>  Install app on active site
-  fp uninstall-app <a>  Remove app from active site
-  fp list-apps          Apps installed on active site
-  fp clear-cache        Clear framework cache
-  fp mariadb            MariaDB shell for active site
+Site commands support `--site` / `-s` for a temporary override:
 
-  ── bench-scoped (no --site needed) ───────────────────────────────
-  fp restart            Restart supervisor / systemd processes
-  fp build              Build JS + CSS assets
-  fp start              Start dev server (Procfile)
-  fp watch              Watch + recompile JS/CSS on change
-  fp get-app <url>      Download app from git URL
-
-  ── sudoers management ────────────────────────────────────────────
-  fp sudo status                Show passwordless restart state
-  fp sudo enable-restart        Grant passwordless supervisorctl
-  fp sudo disable-restart       Revoke the rule
+```bash
+fp m -s staging.example.com
+fp backup -s staging.example.com --with-files
+fp m --bench /srv/frappe/demo-bench --site staging.example.com
+fp m --dry-run
 ```
 
-> **How it works:** `fp` detects the bench root by walking up from your current directory looking for both a `sites/` and `apps/` folder. The active site is stored in `<bench_root>/.fp.yaml` — a plain YAML file you can inspect or edit directly. The wizard's state (`~/.frappe-cli-state.json`) is completely separate and untouched.
+Explicit overrides leave `.fp.yaml` unchanged. The saved selection is shared by
+terminals using the same bench; use an explicit site when working concurrently.
+Existing full command names such as `fp migrate` and `fp restart` still work.
+`fp mariadb` retains its database-console behavior; `fp database` installs the server.
+
+Bench detection walks upward from the current directory looking for `apps/` and
+`sites/`. The active site is saved in `<bench>/.fp.yaml`, independently of wizard
+progress in `~/.frappe-cli-state.json`.
 
 ---
 
@@ -360,9 +410,9 @@ fp <group> <command> [options]
 
 | Group | What it does |
 |---|---|
-| `install wizard` | End-to-end automated installer with state + resume |
+| `setup` | Searchable task selection, plan review, progress, and resume |
 | **`step`** | **Run any individual wizard step on its own** |
-| `ssl` | Issue / list Let's Encrypt certificates for existing sites |
+| `ssl DOMAIN` | Configure HTTPS for a Frappe site, nginx/Apache website, or local application |
 | `site` | Create, list, backup, restore sites |
 | `app` | Get / install / update / remove Frappe apps |
 | `service` | Restart, status, logs for bench + system services |
@@ -377,77 +427,100 @@ fp <group> <command> [options]
 | **`context`** | **Show current bench + active site** |
 | **`sites`** | **List sites in the current bench** |
 
-Every command supports `--help` and many support `--dry-run` and `--debug`.
+Every command supports `--help`. Direct installation commands support `--dry-run`, `--debug`, and `--force`. Existing grouped command syntax remains supported.
 
 ---
 
 ## Everyday recipes
 
-### Add SSL to an existing site
+### Configure HTTPS for a domain
 
 ```bash
-# See all sites and which are still on HTTP
-fp ssl list
+fp ssl back.example.com
+fp ssl back.example.com --email owner@example.com
+fp ssl back.example.com --dry-run
 
-# Issue an HTTPS cert for one site (auto-detects the owning bench)
-fp ssl setup --site-name erp.example.com
+# Application listening on localhost:8000, without an existing virtual host:
+fp ssl back.example.com --port 8000 --email owner@example.com
 
-# First time ever using Let's Encrypt on this host? Provide an email
-fp ssl setup --site-name new.example.com --email you@example.com
+# Existing Frappe bench outside the normal discovery locations:
+fp ssl erp.example.com --bench /srv/frappe/production-bench
 ```
 
-### Re-run a single wizard step
+`fp ssl` asks for a domain in a terminal. Automatic detection uses the Frappe
+integration for a matching site, or an existing exact nginx/Apache virtual host.
+`--port` creates a new nginx proxy to `127.0.0.1:PORT`; it never replaces an existing
+virtual host. The domain must resolve to the intended server and the validation
+and HTTPS ports must be reachable. Existing unrelated server configurations are
+preserved. nginx configuration is tested before reload.
 
-Every step the wizard runs is also exposed as a standalone command. Same code, same self-healing, same verification.
+For certificate-only workflows:
 
 ```bash
-# Show all steps in execution order
-fp step list
-
-# Run just SSL for one site
-fp step ssl --bench-name my-bench --site-name erp.example.com
-
-# Re-do the production setup (nginx + supervisor) for a bench
-fp step production --bench-name my-bench
-
-# Try a step without executing anything
-fp step production --bench-name my-bench --dry-run
-
-# Force a step even when check() says "already done"
-fp step ssl --bench-name my-bench --site-name erp.example.com --force
+fp ssl example.com --method webroot --webroot /var/www/example --email owner@example.com
+fp ssl example.com --method standalone --email owner@example.com
 ```
 
-The full step catalogue:
+These obtain a certificate and configure renewal; you must install that certificate
+in your application's TLS configuration. Standalone validation needs port 80 free.
+Wildcard/DNS-provider automation is not included. Missing packages are installed
+through apt on supported hosts. General web-server renewal uses `certbot.timer`;
+Frappe keeps bench's renewal integration. A certificate file alone is insufficient:
+web-server setup verifies the certificate and public TLS endpoint before success.
 
-| # | Command | Purpose |
-|---|---|---|
-| 1 | `fp step system-update` | `apt-get update && upgrade` |
-| 2 | `fp step system-deps` | Frappe's required apt packages |
-| 3 | `fp step uv-check` | Ensure `uv` is installed |
-| 4 | `fp step nodejs` | Install Node.js + Yarn |
-| 5 | `fp step mariadb-install` | Install MariaDB + utf8mb4 config |
-| 6 | `fp step mariadb-secure` | Secure MariaDB root user |
-| 7 | `fp step redis` | Install Redis server |
-| 8 | `fp step wkhtmltopdf` | Install wkhtmltopdf + X11 fonts |
-| 9 | `fp step bench-install` | `uv tool install frappe-bench` |
-| 10 | `fp step bench-init` | `bench init <name> --frappe-branch ...` |
-| 11 | `fp step site-create` | `bench new-site <site>` |
-| 12 | `fp step app-get` | `bench get-app <url>` |
-| 13 | `fp step dns-multitenant` | `bench config dns_multitenant on` |
-| 14 | `fp step production` | `bench setup production` + supervisor self-heal + verify |
-| 15 | `fp step app-install` | `bench --site <s> install-app <app>` |
-| 16 | `fp step bench-restart` | `supervisorctl reread/update` + nginx reload |
-| 17 | `fp step ssl` | `bench setup lets-encrypt <site>` |
+Existing `fp ssl setup --site-name DOMAIN` and `fp ssl list` remain available.
+`ssl list` currently lists discovered Frappe sites, rather than every host certificate.
+
+### Run an individual installation operation
+
+```bash
+fp prod                       # detect the bench from cwd
+fp prod --bench /srv/frappe/production-bench
+fp prod --dry-run
+fp ssl erp.example.com
+```
+
+| Command | Operation |
+|---|---|
+| `fp os-update` | Update package indexes and upgrade system packages |
+| `fp deps` | Install Frappe system dependencies |
+| `fp uv` | Ensure uv is installed |
+| `fp node` | Install Node.js and Yarn |
+| `fp database` | Install/configure MariaDB |
+| `fp db-secure` | Secure MariaDB; accepts `FP_MARIADB_PASSWORD` |
+| `fp redis` | Install Redis |
+| `fp pdf` | Install wkhtmltopdf |
+| `fp bench` | Install the bench CLI |
+| `fp init NAME [--path PARENT] [--branch BRANCH]` | Initialize a bench |
+| `fp new DOMAIN` | Create a site in the selected bench |
+| `fp get APP [--branch BRANCH]` | Download an app |
+| `fp dns` | Enable DNS multitenancy |
+| `fp prod` | Configure production and verify supervisor/Redis |
+| `fp sudo enable-restart` | Enable optional passwordless restarts |
+| `fp add APP` | Install an app on the selected site |
+| `fp reload` | Reread supervisor configuration and reload nginx |
+| `fp ssl DOMAIN` | Configure HTTPS |
+
+`fp r` runs `bench restart`. `fp reload` performs the installation pipeline's
+supervisor reread/update and nginx reload. `fp service restart` affects host services.
+
+Existing `fp step <name>` commands remain supported; use `fp step list` to inspect
+the underlying pipeline.
 
 ### Add another site to an existing bench
 
 ```bash
-fp step site-create     --bench-name my-bench --site-name shop.example.com
-fp step dns-multitenant --bench-name my-bench
-fp step app-install     --bench-name my-bench --site-name shop.example.com --app-url erpnext
-fp step bench-restart   --bench-name my-bench
-fp step ssl             --bench-name my-bench --site-name shop.example.com
+cd ~/my-bench
+fp new shop.example.com        # asks for credentials; selects the new site
+fp add erpnext
+fp dns
+fp reload
+fp ssl shop.example.com
 ```
+
+You can also choose **Add a site** from `fp setup`. For reproducible scripts, pass
+`--bench` explicitly and provide database/admin credentials through
+`FP_MARIADB_PASSWORD` and `FP_ADMIN_PASSWORD`, rather than command-line passwords.
 
 ### Set up an automated backup
 
@@ -488,7 +561,7 @@ fp firewall setup        # opens 22, 80, 443 by default
 
 | Pain point | `bench` alone | `frappe-cli` |
 |---|---|---|
-| Fresh VPS bootstrap | 8+ manual steps, lots of doc-hopping | `fp install wizard` |
+| Fresh VPS bootstrap | 8+ manual steps, lots of doc-hopping | `fp setup` |
 | Daily `migrate` / `console` | `bench --site long.site.name migrate` | `fp migrate` |
 | Multi-bench supervisor symlink | Sometimes silently missing → errors | Auto-created and verified |
 | Redis health check before `install-app` | None | TCP `PING`/`PONG` on queue/cache/socketio ports |
@@ -499,9 +572,10 @@ fp firewall setup        # opens 22, 80, 443 by default
 
 ---
 
-## Configuration file (optional)
+## Configuration file utilities
 
-For reproducible installs, pass a YAML config with `--config`:
+The following YAML illustrates the existing config utilities. Root `--config` loading
+is not wired into setup yet; it does not prefill the wizard:
 
 ```yaml
 # production.yaml
@@ -529,8 +603,8 @@ See [`src/frappe_cli/data/example_config.yaml`](src/frappe_cli/data/example_conf
 
 ## Logs and troubleshooting
 
-- All commands log to `/var/log/frappe-installer.log` (with local fallback if not writable).
-- Use `--debug` on any command for verbose subprocess output.
+- Legacy operations use `/var/log/frappe-installer.log` (with a local fallback). The wizard shows a live log tail or plain output; failures include redacted diagnostics.
+- Use `--debug` on installation commands for detailed failure output.
 - Use `--dry-run` on `step` / `install` commands to preview what would run.
 - For a known-working manual flow you can compare against, see [`docs/superpowers/test3-bench-setup.md`](docs/superpowers/test3-bench-setup.md) — a step-by-step runbook used to verify every wizard step.
 
@@ -564,7 +638,7 @@ src/frappe_cli/
 │   ├── context.py          # bench detection + .fp.yaml read/write
 │   └── commands.py         # use, context, sites + passthrough commands
 ├── install/
-│   ├── wizard.py           # fp install wizard
+│   ├── wizard.py           # fp setup
 │   ├── context.py          # InstallContext dataclass
 │   ├── state.py            # ~/.frappe-cli-state.json (resume support)
 │   └── steps/              # one InstallStep class per wizard step

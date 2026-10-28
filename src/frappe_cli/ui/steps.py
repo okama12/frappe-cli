@@ -3,8 +3,10 @@ from collections import deque
 from dataclasses import dataclass, field
 from enum import Enum
 
+from rich.cells import cell_len
 from rich.console import Console, ConsoleOptions, Group
 from rich.panel import Panel
+from rich.progress_bar import ProgressBar
 from rich.table import Table
 from rich.text import Text
 
@@ -62,24 +64,40 @@ class StepListRenderer:
         low = line.lower()
         if "[sudo]" in low or low.startswith("password"):
             return
-        if len(line) > 90:
-            line = line[:87] + "..."
         self._logs.append(line)
 
     def set_current(self, name: str) -> None:
         self._current = name
         self._logs.clear()
 
-    def render(self) -> Group:
+    def render(self, width: int = 80, height: int = 40) -> Group:
         self._frame += 1
         spin = SPINNER[self._frame % len(SPINNER)]
 
-        table = Table.grid(padding=(0, 2))
-        table.add_column(width=3)
-        table.add_column(min_width=42)
-        table.add_column(width=8, justify="right")
+        table = Table.grid(padding=(0, 1))
+        table.add_column(width=1)
+        table.add_column(overflow="fold")
+        table.add_column(width=7, justify="right")
 
-        for step in self._steps:
+        # Keep the running row visible on short SSH terminals.
+        limit = max(3, (height - 15) // (2 if width < 60 else 1))
+        current = next(
+            (
+                i
+                for i, s in enumerate(self._steps)
+                if s.status in {StepStatus.RUNNING, StepStatus.FAILED}
+            ),
+            len(self._steps) - 1,
+        )
+        start = max(0, min(current - 2, len(self._steps) - limit))
+        visible = self._steps[start : start + limit]
+        if start:
+            table.add_row(
+                Text("…", style="dim"),
+                Text(f"{start} earlier steps", style="dim"),
+                Text(""),
+            )
+        for step in visible:
             t = _fmt_time(step.live_elapsed())
             if step.status == StepStatus.DONE:
                 table.add_row(
@@ -112,24 +130,55 @@ class StepListRenderer:
                     Text(""),
                 )
 
+        remaining = len(self._steps) - start - len(visible)
+        if remaining:
+            table.add_row(
+                Text("…", style="dim"),
+                Text(f"{remaining} more steps", style="dim"),
+                Text(""),
+            )
+        completed = sum(
+            s.status in {StepStatus.DONE, StepStatus.SKIPPED} for s in self._steps
+        )
+        content_width = min(
+            max(1, width - 4),
+            max(
+                24,
+                max(
+                    (
+                        cell_len(s.name) + (16 if s.status == StepStatus.SKIPPED else 0)
+                        for s in self._steps
+                    ),
+                    default=0,
+                )
+                + 12,
+            ),
+        )
         steps_panel = Panel(
-            table,
-            title="[bold] Installing Frappe Production Stack [/bold]",
-            border_style="blue",
+            Group(
+                Text(f"{completed}/{len(self._steps)} complete", style="dim"),
+                ProgressBar(
+                    total=max(1, len(self._steps)),
+                    completed=completed,
+                    width=content_width,
+                ),
+                table,
+            ),
+            title="[bold] Setup progress [/bold]",
+            border_style="cyan",
             padding=(0, 1),
             expand=False,
         )
 
-        log_lines = Text()
+        log_lines = Text(no_wrap=True, overflow="ellipsis")
         if self._logs:
-            for line in self._logs:
-                log_lines.append(line + "\n", style="dim")
+            log_lines.append(
+                "\n".join(list(self._logs)[-max(2, min(5, height // 6)) :]), style="dim"
+            )
         else:
             log_lines.append("Waiting for output...", style="dim italic")
 
-        title = (
-            f"[bold cyan]▶  {self._current}[/bold cyan]" if self._current else "Output"
-        )
+        title = Text(self._current or "Recent output", style="cyan")
         log_panel = Panel(
             log_lines, title=title, border_style="dim", padding=(0, 1), expand=False
         )
@@ -166,4 +215,4 @@ class StepListRenderer:
         pass  # handled automatically via start/finish
 
     def __rich_console__(self, console: Console, options: ConsoleOptions):
-        yield self.render()
+        yield self.render(width=options.max_width, height=console.size.height)

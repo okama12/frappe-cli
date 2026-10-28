@@ -7,7 +7,7 @@ def test_backup_help():
     runner = CliRunner()
     result = runner.invoke(cli.cli, ["backup", "--help"])
     assert result.exit_code == 0
-    assert "Backup management commands" in result.output
+    assert "Back up the selected site" in result.output
 
 
 def test_backup_setup_help():

@@ -30,12 +30,7 @@ class NodeJSStep(InstallStep):
                 capture_output=True,
                 check=True,
             )
-            subprocess.run(
-                ["sudo", "-S", "bash"],
-                input=(ctx.sudo_password + "\n").encode() + script.stdout,
-                check=True,
-                capture_output=True,
-            )
+            self._sudo_pipe_stdin(ctx, ["bash"], script.stdout)
         except subprocess.CalledProcessError as e:
             raise StepError(
                 "Failed to run NodeSource setup script",

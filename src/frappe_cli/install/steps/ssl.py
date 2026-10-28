@@ -4,6 +4,14 @@ from pathlib import Path
 from .base import InstallStep
 
 
+class LogConsole:
+    def __init__(self, log_fn):
+        self.log_fn = log_fn
+
+    def print(self, value, **kwargs):
+        self.log_fn(str(value))
+
+
 class SSLSetupStep(InstallStep):
     name = "ssl_setup"
     description = "Configure SSL (Let's Encrypt)"
@@ -22,50 +30,52 @@ class SSLSetupStep(InstallStep):
         existed for it). Use `sudo test -f` for an authoritative answer.
         """
         cert_path = self._cert_path(ctx)
+        present = False
         try:
-            return cert_path.exists()
+            present = cert_path.exists()
         except (PermissionError, OSError):
             pass
-        if not ctx.sudo_password:
-            return False
-        try:
-            result = subprocess.run(
-                ["sudo", "-S", "test", "-f", str(cert_path)],
-                input=(ctx.sudo_password + "\n").encode(),
-                capture_output=True,
-                timeout=15,
-            )
-            return result.returncode == 0
-        except (OSError, subprocess.TimeoutExpired):
-            return False
+        if not present and ctx.sudo_password:
+            try:
+                result = subprocess.run(
+                    ["sudo", "-S", "test", "-f", str(cert_path)],
+                    input=(ctx.sudo_password + "\n").encode(),
+                    capture_output=True,
+                    timeout=15,
+                )
+                present = result.returncode == 0
+            except (OSError, subprocess.TimeoutExpired):
+                return False
+        if present:
+            import click
+
+            from frappe_cli.ssl.secure import Runner, certificate_valid, verify_https
+
+            try:
+                if certificate_valid(ctx.site_name, Runner(ctx.sudo_password)):
+                    verify_https(ctx.site_name)
+                    return True
+            except click.ClickException:
+                pass
+        return False
 
     def run(self, ctx) -> None:
-        # Ensure certbot is available (bench setup lets-encrypt shells out to it).
-        result = subprocess.run(["which", "certbot"], capture_output=True)
-        if result.returncode != 0:
-            self._sudo(
-                ctx, ["apt-get", "install", "-y", "certbot", "python3-certbot-nginx"]
-            )
+        import click
+        from rich.console import Console
 
-        # Use `bench setup lets-encrypt <site>` (not raw `certbot --nginx`) so
-        # bench rewrites this bench's nginx config with the SSL block and adds
-        # a monthly renewal cron. Mirrors the manual runbook (Step 6.1).
-        #
-        # The command prompts twice; both answered 'y':
-        #   1) "Running this will stop the nginx service temporarily..."
-        #   2) "nginx.conf already exists and this will overwrite it..."
-        bench_bin = str(Path.home() / ".local" / "bin" / "bench")
-        bench_path = self._local_bin_env()["PATH"]
-        self._sudo_with_stdin(
-            ctx,
-            [
-                "env",
-                f"PATH={bench_path}",
-                bench_bin,
-                "setup",
-                "lets-encrypt",
+        from frappe_cli.ssl.secure import configure_https
+
+        from .base import StepError
+
+        output = LogConsole(ctx.log_fn) if ctx.log_fn else Console()
+        try:
+            configure_https(
                 ctx.site_name,
-            ],
-            stdin=b"y\ny\n",
-            cwd=str(ctx.bench_path),
-        )
+                email=ctx.ssl_email,
+                bench=ctx.bench_path,
+                dry_run=ctx.dry_run,
+                sudo_password=ctx.sudo_password,
+                console=output,
+            )
+        except click.ClickException as exc:
+            raise StepError("HTTPS setup failed", hint=exc.format_message()) from exc

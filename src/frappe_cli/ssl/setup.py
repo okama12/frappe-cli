@@ -19,6 +19,8 @@ import click
 from rich.console import Console
 
 from ..utils.logging import get_logger
+from ..utils.targets import validated
+from ..utils.validators import validate_site_name
 
 console = Console()
 logger = get_logger("ssl.setup")
@@ -31,6 +33,7 @@ def _find_bench_for_site(site_name: str, bench_name: str = "") -> Path:
     immediate subdirectories of `$HOME` for the first match.
     """
     home = Path.home()
+    validated(site_name, validate_site_name)
     candidates: list[Path] = []
     if bench_name:
         candidates = [home / bench_name]
@@ -39,11 +42,23 @@ def _find_bench_for_site(site_name: str, bench_name: str = "") -> Path:
             candidates = sorted(p for p in home.iterdir() if p.is_dir())
         except OSError:
             candidates = []
+        from ..dev.context import find_bench_root
 
+        current = find_bench_root(Path.cwd())
+        if current and current not in candidates:
+            candidates.append(current)
+
+    matches = []
     for bench_path in candidates:
         site_config = bench_path / "sites" / site_name / "site_config.json"
         if site_config.exists():
-            return bench_path
+            matches.append(bench_path)
+    if len(matches) > 1:
+        raise click.ClickException(
+            f"Multiple benches contain {site_name}. Pass --bench with the intended path."
+        )
+    if matches:
+        return matches[0]
 
     if bench_name:
         raise click.ClickException(
@@ -149,7 +164,15 @@ def setup(site_name: str, bench_name: str, email: str, force: bool) -> None:
         fp ssl setup --site-name site.example.com --email me@example.com
     """
     logger.info(f"[ssl] Setting up SSL for {site_name}")
-    bench_path = _find_bench_for_site(site_name, bench_name)
+    try:
+        bench_path = _find_bench_for_site(site_name, bench_name)
+    except click.ClickException as exc:
+        if bench_name or "Multiple benches" in str(exc):
+            raise
+        from .secure import configure_https
+
+        configure_https(site_name, email=email, force=force, console=console)
+        return
     console.print(f"[cyan]Bench:[/cyan] {bench_path}")
     console.print(f"[cyan]Site:[/cyan]  {site_name}")
 
@@ -171,11 +194,10 @@ def setup(site_name: str, bench_name: str, email: str, force: bool) -> None:
 
     console.print(f"[cyan]Running:[/cyan] sudo -H bench setup lets-encrypt {site_name}")
     # bench prompts twice: stop nginx? y, overwrite nginx.conf? y
-    proc = subprocess.run(
+    from .secure import Runner
+
+    proc = Runner(sudo_password).run(
         [
-            "sudo",
-            "-S",
-            "-H",
             "env",
             f"PATH={path_env}",
             bench_bin,
@@ -183,8 +205,9 @@ def setup(site_name: str, bench_name: str, email: str, force: bool) -> None:
             "lets-encrypt",
             site_name,
         ],
-        input=(sudo_password + "\ny\ny\n").encode(),
+        stdin=b"y\ny\n",
         cwd=str(bench_path),
+        timeout=900,
     )
     if proc.returncode != 0:
         raise click.ClickException(
